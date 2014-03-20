@@ -3,7 +3,7 @@ TOPDIR = $(SRCDIR)/..
 
 include $(TOPDIR)/Make.defaults
 
-PKLIBS = nss
+PKLIBS = nss efivar
 LIBS = popt
 STATIC_LIBS = 
 LDFLAGS =
