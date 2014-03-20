@@ -1,0 +1,22 @@
+%.a :
+	$(AR) -cvqs $@ $^
+
+% : %.o
+	$(CC) $(CCLDFLAGS) -o $@ $^ $(foreach lib,$(LIBS),-l$(lib)) $(foreach pklib,$(PKLIBS), $(shell pkg-config --libs-only-l --libs-only-other $(pklib))) -lpthread
+
+%.so : 
+	$(CC) $(INCDIR) $(BUILDFLAGS) -Wl,-soname,$(SONAME) $(CCLDFLAGS) $^ -o $@
+
+%.o: %.c
+	$(CC) $(INCDIR) $(BUILDFLAGS) $(CPPFLAGS) -c $< -o $@
+
+.%.P : %.c
+	$(CC) $(INCDIR) $(BUILDFLAGS) $(CPPFLAGS) -M -MM -MF $@ $^
+
+%.S: %.c
+	$(CC) $(INCDIR) $(BUILDFLAGS) $(CPPFLAGS) -S $< -o $@
+
+%.E: %.c
+	$(CC) $(INCDIR) $(BUILDFLAGS) $(CPPFLAGS) -E $< -o $@
+
+%.c : %.h
