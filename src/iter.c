@@ -132,3 +132,66 @@ err:
 
 	return iter->line;
 }
+
+struct esl_iter {
+	uint8_t *buf;
+	size_t len;
+
+	off_t offset;
+
+	EFI_SIGNATURE_LIST *esl;
+};
+
+int esl_iter_new(esl_iter **iter, uint8_t *buf, size_t len)
+{
+	if (len < sizeof (EFI_SIGNATURE_LIST) + sizeof (EFI_SIGNATURE_DATA)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	*iter = calloc(1, sizeof (esl_iter));
+	if (!*iter)
+		err(1, NULL);
+
+	(*iter)->buf = buf;
+	(*iter)->len = len;
+
+	return 0;
+}
+
+int esl_iter_end(esl_iter *iter)
+{
+	if (!iter) {
+		errno = EINVAL;
+		return -1;
+	}
+	free(iter);
+	return 0;
+}
+
+int esl_iter_next(esl_iter *iter, efi_guid_t *type,
+		EFI_SIGNATURE_DATA **data, size_t *len)
+{
+	if (!iter)
+		return -EINVAL;
+	if (iter->offset >= iter->len)
+		return -EINVAL;
+
+	if (!iter->esl) {
+		iter->esl = (EFI_SIGNATURE_LIST *)iter->buf;
+	} else {
+		iter->offset += iter->esl->SignatureListSize;
+		if (iter->offset >= iter->len)
+			return 1;
+		iter->esl = (EFI_SIGNATURE_LIST *)((intptr_t)iter->buf
+						+ iter->offset);
+
+	}
+	*type = iter->esl->SignatureType;
+	*data = (EFI_SIGNATURE_DATA *)((intptr_t)iter->esl
+			+ sizeof (EFI_SIGNATURE_LIST)
+			+ iter->esl->SignatureHeaderSize);
+	*len = iter->esl->SignatureListSize - sizeof (EFI_SIGNATURE_LIST);
+
+	return 0;
+}

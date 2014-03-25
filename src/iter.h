@@ -31,4 +31,10 @@ extern int esd_iter_next(esd_iter *iter, efi_guid_t *type,
 	efi_guid_t *owner, uint8_t **data, size_t *len);
 extern int esd_iter_get_line(esd_iter *iter);
 
+typedef struct esl_iter esl_iter;
+extern int esl_iter_new(esl_iter **iter, uint8_t *buf, size_t len);
+extern int esl_iter_end(esl_iter *iter);
+extern int esl_iter_next(esl_iter *iter, efi_guid_t *type,
+	EFI_SIGNATURE_DATA **data, size_t *len);
+
 #endif /* DBXTOOL_ITER_H */
