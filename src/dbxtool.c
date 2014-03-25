@@ -175,7 +175,12 @@ dump_dbx(uint8_t *buf, size_t len)
 		printf("%4d: \"%s\" \"%s\" ", iter->line, ownerstr, typestr);
 		print_hex(data, datalen);
 		printf("\n");
+
+		free(typestr);
+		free(ownerstr);
 	}
+
+	dbx_iter_end(iter);
 	return 0;
 }
 
@@ -285,6 +290,11 @@ main(int argc, char *argv[])
 	if (action & ACTION_LIST) {
 		dump_dbx(dbx_buffer, dbx_len);
 		action &= ~ACTION_LIST;
+	}
+
+	if (ctx.dbx_file == NULL) {
+		if (dbx_buffer)
+			free(dbx_buffer);
 	}
 
 	return 0;
