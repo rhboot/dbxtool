@@ -16,21 +16,19 @@
  *
  * Author(s): Peter Jones <pjones@redhat.com>
  */
-#ifndef ESL_H
-#define ESL_H 1
+#ifndef DBXTOOL_ITER_H
+#define DBXTOOL_ITER_H 1
 
 #include <efivar.h>
+#include <stdint.h>
+#include <unistd.h>
 
-typedef struct {
-	efi_guid_t	SignatureOwner;
-	uint8_t		SignatureData[0];
-} EFI_SIGNATURE_DATA;
+typedef struct esd_iter esd_iter;
 
-typedef struct {
-	efi_guid_t	SignatureType;
-	uint32_t	SignatureListSize;
-	uint32_t	SignatureHeaderSize;
-	uint32_t	SignatureSize;
-} EFI_SIGNATURE_LIST;
+extern int esd_iter_new(esd_iter **iter, uint8_t *buf, size_t len);
+extern int esd_iter_end(esd_iter *iter);
+extern int esd_iter_next(esd_iter *iter, efi_guid_t *type,
+	efi_guid_t *owner, uint8_t **data, size_t *len);
+extern int esd_iter_get_line(esd_iter *iter);
 
-#endif /* ESL_H */
+#endif /* DBXTOOL_ITER_H */

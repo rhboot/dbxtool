@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 
 #include "esl.h"
+#include "iter.h"
 #include "util.h"
 
 #define ACTION_LIST	0x1
@@ -45,107 +46,13 @@ print_hex(uint8_t *data, size_t len)
 			       hex[(data[i] & 0x0f) >> 0]);
 }
 
-typedef struct {
-	uint8_t *buf;
-	size_t len;
-
-	off_t offset;
-	int line;
-
-	EFI_SIGNATURE_LIST *esl;
-	EFI_SIGNATURE_DATA *esd;
-	size_t nmemb;
-	int i;
-} dbx_iter;
-
-int
-dbx_iter_new(dbx_iter **iter, uint8_t *buf, size_t len)
-{
-	if (len < sizeof (EFI_SIGNATURE_LIST) + sizeof (EFI_SIGNATURE_DATA)) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	*iter = calloc(1, sizeof (dbx_iter));
-	if (!*iter)
-		err(1, NULL);
-
-	(*iter)->buf = buf;
-	(*iter)->len = len;
-	(*iter)->i = -1;
-
-	return 0;
-}
-
-int
-dbx_iter_end(dbx_iter *iter)
-{
-	if (!iter) {
-		errno = EINVAL;
-		return -1;
-	}
-	free(iter);
-	return 0;
-}
-
-int
-dbx_iter_next(dbx_iter *iter, efi_guid_t *type, efi_guid_t *owner,
-		uint8_t **data, size_t *len)
-{
-	if (!iter)
-		return -EINVAL;
-	if (iter->offset >= iter->len)
-		return -EINVAL;
-
-	iter->i += 1;
-	iter->line += 1;
-	if (!iter->esl) {
-		iter->esl = (EFI_SIGNATURE_LIST *)iter->buf;
-		iter->i = 0;
-
-		iter->nmemb = (iter->esl->SignatureListSize
-			       - sizeof (EFI_SIGNATURE_LIST)
-			       - iter->esl->SignatureHeaderSize)
-			      / iter->esl->SignatureSize;
-
-		iter->esd = (EFI_SIGNATURE_DATA *)((intptr_t)iter->esl
-			     + sizeof (EFI_SIGNATURE_LIST)
-			     + iter->esl->SignatureHeaderSize);
-	} else if (iter->i == iter->nmemb) {
-		iter->offset += iter->esl->SignatureListSize;
-		if (iter->offset >= iter->len)
-			return 1;
-		iter->esl = (EFI_SIGNATURE_LIST *)((intptr_t)iter->buf
-						+ iter->offset);
-		iter->i = 0;
-		iter->nmemb = (iter->esl->SignatureListSize
-			       - sizeof (EFI_SIGNATURE_LIST)
-			       - iter->esl->SignatureHeaderSize)
-			      / iter->esl->SignatureSize;
-		iter->esd = (EFI_SIGNATURE_DATA *)((intptr_t)iter->esl
-			     + sizeof (EFI_SIGNATURE_LIST)
-			     + iter->esl->SignatureHeaderSize);
-	} else {
-		iter->offset += iter->esl->SignatureSize;
-		iter->esd = (void *)((intptr_t)iter->esd
-				+ iter->esl->SignatureSize);
-	}
-
-	*type = iter->esl->SignatureType;
-	*owner = iter->esd->SignatureOwner;
-	*data = iter->esd->SignatureData;
-	*len = iter->esl->SignatureSize - sizeof (iter->esd->SignatureOwner);
-
-	return 0;
-}
-
 int
 dump_dbx(uint8_t *buf, size_t len)
 {
 	int rc;
-	dbx_iter *iter = NULL;
+	esd_iter *iter = NULL;
 
-	rc = dbx_iter_new(&iter, buf, len);
+	rc = esd_iter_new(&iter, buf, len);
 	if (rc < 0)
 		err(1, NULL);
 
@@ -155,7 +62,7 @@ dump_dbx(uint8_t *buf, size_t len)
 		uint8_t *data;
 		size_t datalen;
 
-		rc = dbx_iter_next(iter, &type, &owner, &data, &datalen);
+		rc = esd_iter_next(iter, &type, &owner, &data, &datalen);
 		if (rc < 0)
 			err(1, NULL);
 		if (rc)
@@ -172,7 +79,8 @@ dump_dbx(uint8_t *buf, size_t len)
 		if (rc < 0)
 			err(1, "bad owner guid");
 
-		printf("%4d: \"%s\" \"%s\" ", iter->line, ownerstr, typestr);
+		printf("%4d: \"%s\" \"%s\" ", esd_iter_get_line(iter),
+						ownerstr, typestr);
 		print_hex(data, datalen);
 		printf("\n");
 
@@ -180,7 +88,7 @@ dump_dbx(uint8_t *buf, size_t len)
 		free(ownerstr);
 	}
 
-	dbx_iter_end(iter);
+	esd_iter_end(iter);
 	return 0;
 }
 
