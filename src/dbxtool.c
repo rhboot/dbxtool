@@ -65,7 +65,7 @@ dump_dbx(uint8_t *buf, size_t len)
 		rc = esd_iter_next(iter, &type, &owner, &data, &datalen);
 		if (rc < 0)
 			err(1, NULL);
-		if (rc)
+		if (rc == 0)
 			break;
 
 

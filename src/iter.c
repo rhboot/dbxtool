@@ -93,7 +93,7 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 	if (iter->i == iter->nmemb) {
 		iter->i = 0;
 		rc = esl_iter_next(iter->iter, type, &iter->esd, &iter->len);
-		if (rc < 0 || rc == 1)
+		if (rc < 1)
 			return rc;
 
 		size_t sls, slh;
@@ -121,7 +121,7 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 	*owner = iter->esd->SignatureOwner;
 	*data = iter->esd->SignatureData;
 	*len = ss - sizeof (iter->esd->SignatureOwner);
-	return 0;
+	return 1;
 }
 
 int
@@ -187,7 +187,7 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 	} else {
 		iter->offset += iter->esl->SignatureListSize;
 		if (iter->offset >= iter->len)
-			return 1;
+			return 0;
 		iter->esl = (EFI_SIGNATURE_LIST *)((intptr_t)iter->buf
 						+ iter->offset);
 
@@ -198,7 +198,7 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 			+ iter->esl->SignatureHeaderSize);
 	*len = iter->esl->SignatureListSize - sizeof (EFI_SIGNATURE_LIST);
 
-	return 0;
+	return 1;
 }
 
 int
