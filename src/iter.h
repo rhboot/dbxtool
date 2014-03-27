@@ -36,5 +36,8 @@ extern int esl_iter_new(esl_iter **iter, uint8_t *buf, size_t len);
 extern int esl_iter_end(esl_iter *iter);
 extern int esl_iter_next(esl_iter *iter, efi_guid_t *type,
 	EFI_SIGNATURE_DATA **data, size_t *len);
+extern int esl_list_size(esl_iter *iter, size_t *sls);
+extern int esl_header_size(esl_iter *iter, size_t *slh);
+extern int esl_sig_size(esl_iter *iter, size_t *ss);
 
 #endif /* DBXTOOL_ITER_H */
