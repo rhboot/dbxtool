@@ -33,5 +33,6 @@ struct esl_hash_entry {
 };
 
 extern size_t esl_htable_hash(const struct esl_hash_entry *elem);
+extern bool esl_htable_eq(const void *l, void *r);
 
 #endif /* DBXTOOL_ESLHTABLE_H */

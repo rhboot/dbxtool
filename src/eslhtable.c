@@ -23,6 +23,7 @@
 
 #include "eslhtable.h"
 #include "iter.h"
+#include "util.h"
 
 size_t
 esl_htable_hash(const struct esl_hash_entry *elem)
@@ -33,6 +34,22 @@ esl_htable_hash(const struct esl_hash_entry *elem)
 	base = hash((uint8_t *)&hep->type, sizeof(hep->type), base);
 	base = hash(hep->data, hep->datalen, base);
 	return base;
+}
+
+bool
+esl_htable_eq(const void *l, void *r)
+{
+	const struct esl_hash_entry *le = l, *re = r;
+
+	int ret;
+	ret = guidcmp(&le->type, &re->type);
+	if (ret != 0)
+		return 1;
+
+	if (le->datalen != re->datalen)
+		return 1;
+
+	return memcmp(le->data, re->data, re->datalen) == 0;
 }
 
 size_t
@@ -47,7 +64,7 @@ esl_htable_create(struct htable *ht, uint8_t *dbx_buf, size_t dbx_len)
 	esd_iter *iter = NULL;
 	int rc;
 	int ret = 0;
-	
+
 	rc = esd_iter_new(&iter, dbx_buf, dbx_len);
 	if (rc < 0)
 		err(1, NULL);
