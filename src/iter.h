@@ -23,6 +23,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include "esl.h"
+
 typedef struct esd_iter esd_iter;
 
 extern int esd_iter_new(esd_iter **iter, uint8_t *buf, size_t len);
