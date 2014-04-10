@@ -3,7 +3,10 @@ PREFIX := /usr
 
 INCDIR	   = -I$(TOPDIR)/include
 CFLAGS     = -g -O0
-BUILDFLAGS := $(CFLAGS) -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants --std=gnu99 -D_GNU_SOURCE -Wno-unused-result -Wno-unused-function
+BUILDFLAGS := $(CFLAGS) -fpic -Wall -fshort-wchar -fno-strict-aliasing \
+		-fno-merge-constants --std=gnu99 -D_GNU_SOURCE \
+		-Wno-unused-result -Wno-unused-function \
+		-I$(TOPDIR)/src/ccan
 ASFLAGS    =
 LDFLAGS	   = -nostdlib
 CCLDFLAGS  = -shared

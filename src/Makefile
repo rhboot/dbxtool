@@ -5,7 +5,7 @@ include $(TOPDIR)/Make.defaults
 
 PKLIBS = efivar
 LIBS = popt
-STATIC_LIBS = 
+STATIC_LIBS = ccan/libccan.a
 LDFLAGS =
 CCLDFLAGS = $(foreach pklib,$(PKLIBS), $(shell pkg-config --libs-only-L $(pklib)))
 BUILDFLAGS += $(foreach pklib,$(PKLIBS), $(shell pkg-config --cflags $(pklib))) -Werror
@@ -26,9 +26,13 @@ deps : $(DEPS)
 depclean :
 	@rm -fv .*.P
 
+ccan/libccan.a :
+	@$(MAKE) CFLAGS="$(BUILDFLAGS)" -C ccan all
+
 -include $(DEPS)
 
 clean : depclean
+	@find ccan \( -iname '*.o' -o -iname '*.a' \) -exec rm -fv {} \;
 	@rm -rfv *.o *.a *.so $(TARGETS)
 
 install :
