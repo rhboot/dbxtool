@@ -27,23 +27,64 @@
 #include <sys/stat.h>
 
 #include "esl.h"
+#include "eslhtable.h"
 #include "iter.h"
 #include "util.h"
 
+#include <ccan/htable/htable.h>
+
 #define ACTION_LIST	0x1
+#define ACTION_APPLY	0x2
 
 typedef struct {
 	char *dbx_file;
 	int action;
 } dbxtool_ctx;
 
-static void
-print_hex(uint8_t *data, size_t len)
+static inline int
+print_time(FILE *f, EFI_TIME *t)
 {
-	char hex[] = "0123456789abcdef";
-	for (int i = 0; i < len; i++)
-		printf("%c%c", hex[(data[i] & 0xf0) >> 4],
-			       hex[(data[i] & 0x0f) >> 0]);
+	return fprintf(f, "%4d-%d-%d %d:%d:%d",
+		t->Year, t->Month, t->Day, t->Hour, t->Minute, t->Second);
+}
+
+static inline int
+is_time_sane(EFI_TIME *t)
+{
+	if (t->Second >= 60)
+		return 0;
+	if (t->Minute >= 60)
+		return 0;
+	if (t->Hour >= 24)
+		return 0;
+	int mlen = 0;
+	switch (t->Month) {
+		case 1:
+		case 3:
+		case 5:
+		case 7:
+		case 8:
+		case 10:
+		case 12:
+			mlen = 31;
+			break;
+		case 2:
+			mlen = 28;
+			break;
+		case 4:
+		case 6:
+		case 9:
+		case 11:
+			mlen = 30;
+			break;
+		default:
+			return 0;
+	}
+	if (t->Day < 0 || t->Day > mlen)
+		return 0;
+	if (t->Year < 1998)
+		return 0;
+	return 1;
 }
 
 int
@@ -99,20 +140,6 @@ typedef enum {
 	ft_append_timestamp,
 	ft_append_monotonic
 } filetype;
-
-static inline int
-is_empty_guid(efi_guid_t *guid)
-{
-	if (memcmp(guid,&efi_guid_empty,sizeof (efi_guid_t)) == 0)
-		return 1;
-	return 0;
-}
-
-static inline int
-guidcmp(efi_guid_t *a, efi_guid_t *b)
-{
-	return memcmp(a, b, sizeof (efi_guid_t));
-}
 
 static filetype
 guess_file_type(uint8_t *buf, size_t buflen)
@@ -205,11 +232,76 @@ guess_file_type(uint8_t *buf, size_t buflen)
 	return ft_unknown;
 }
 
+static ssize_t
+get_cert_type_size(efi_guid_t *guid)
+{
+	struct {
+		efi_guid_t guid;
+		ssize_t size;
+	} sizes[] = {
+		{efi_guid_sha256, 32 },
+		{efi_guid_empty, 0 }
+	};
+	for (int i = 0; guidcmp(&sizes[i].guid, &efi_guid_empty); i++) {
+		if (!guidcmp(&sizes[i].guid, guid))
+			return sizes[i].size;
+	}
+	errno = ENOENT;
+	return -1;
+}
+
+static int
+is_update_applied(struct iovec *auth, struct htable *dbx)
+{
+	int rc;
+	int ret = 1;
+
+	EFI_VARIABLE_AUTHENTICATION_2 *va =
+					(EFI_VARIABLE_AUTHENTICATION_2 *)
+					auth->iov_base;
+	size_t esllen = auth->iov_len
+			- sizeof (va->TimeStamp)
+			- va->AuthInfo.Hdr.dwLength;
+	uint8_t *eslbuf = (uint8_t *)
+			((intptr_t)&va->AuthInfo.Hdr.bCertificate
+				+ va->AuthInfo.Hdr.dwLength
+				- sizeof (va->AuthInfo.Hdr));
+
+	esd_iter *esdi = NULL;
+	rc = esd_iter_new(&esdi, eslbuf, esllen);
+	if (rc < 0)
+		err(1, "Couldn't iterate contents of update");
+
+	while (1) {
+		struct esl_hash_entry ehe;
+		struct esl_hash_entry *ehep;
+
+		rc = esd_iter_next(esdi, &ehe.type, &ehe.owner,
+					&ehe.data, &ehe.datalen);
+		if (rc < 0)
+			err(1, NULL);
+		if (rc == 0)
+			break;
+
+		ehep = htable_get(dbx, esl_htable_hash(&ehe), esl_htable_eq,
+				&ehe);
+		if (!ehep) {
+			ret = 0;
+			break;
+		}
+	}
+	esd_iter_end(esdi);
+
+	return ret;
+}
+
 int
 main(int argc, char *argv[])
 {
 	int rc;
 	uint32_t action = 0;
+
+	const char **apply_files = NULL;
 
 	dbxtool_ctx ctx = { 0 };
 	poptContext optCon;
@@ -221,6 +313,9 @@ main(int argc, char *argv[])
 		{"list", 'l', POPT_ARG_VAL|POPT_ARGFLAG_OR,
 			&action, ACTION_LIST,
 			"list entries in dbx", NULL },
+		{"apply", 'a', POPT_ARG_VAL|POPT_ARGFLAG_OR,
+			&action, ACTION_APPLY,
+			"apply update files", NULL },
 		POPT_AUTOALIAS
 		POPT_AUTOHELP
 		POPT_TABLEEND
@@ -233,8 +328,24 @@ main(int argc, char *argv[])
         if (rc < 0)
 		errx(1, "poptReadDefaultConfig failed: %s", poptStrerror(rc));
 
-	while ((rc = poptGetNextOpt(optCon)) > 0)
-		;
+	rc = poptGetNextOpt(optCon);
+	int num_apply_bufs = 0;
+	if (action & ACTION_APPLY) {
+		if (rc >= 0)
+			errx(1, "--apply was specified with no files given");
+
+		apply_files = poptGetArgs(optCon);
+		if (apply_files == NULL)
+			errx(1, "--apply was specified with no files given: "
+				"\"%s\": %s",
+				poptBadOption(optCon, 0), poptStrerror(rc));
+		for (int i = 0; apply_files[i] != NULL; i++, num_apply_bufs++) {
+			poptGetArg(optCon);
+			if (access(apply_files[i], R_OK))
+				err(1, "Could not open \"%s\"", apply_files[i]);
+		}
+		rc = 0;
+	}
 
 	if (rc < -1)
 		errx(1, "Invalid argument: \"%s\": %s",
@@ -244,13 +355,11 @@ main(int argc, char *argv[])
 		errx(1, "Invalid argument: \"%s\"",
 			poptPeekArg(optCon));
 
-	poptFreeContext(optCon);
-
 	uint8_t *dbx_buffer = NULL;
 	size_t dbx_len = 0;
 	uint32_t attributes = 0;
 	if (ctx.dbx_file != NULL) {
-		int fd = open(ctx.dbx_file, O_RDONLY);
+		int fd = open(ctx.dbx_file, O_RDWR|O_CREAT);
 		if (fd < 0)
 			err(1, "Could not open file \"%s\"", ctx.dbx_file);
 
@@ -288,40 +397,68 @@ main(int argc, char *argv[])
 				err(1, "Sorry, can't handle this yet");
 				break;
 		}
-#if 0
-
-		/* if we get a file that's just dd-ed from sysfs,
-		 * it'll have some attribute bits at the beginning */
-		if ((dbx_buffer[0] &
-				~(EFI_VARIABLE_NON_VOLATILE|
-				  EFI_VARIABLE_BOOTSERVICE_ACCESS|
-				  EFI_VARIABLE_RUNTIME_ACCESS|
-				  EFI_VARIABLE_HARDWARE_ERROR_RECORD|
-				  EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS|
-				  EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS|
-				  EFI_VARIABLE_APPEND_WRITE)) == 0 &&
-				dbx_buffer[1] == 0 &&
-				dbx_buffer[2] == 0 &&
-				dbx_buffer[3] == 0 &&
-				dbx_len > 4) {
-		}
-#endif
 	} else {
 		if (!efi_variables_supported())
 			errx(1, "EFI variables are not supported on this "
 				"machine, and no dbx file was specified");
 
-		efi_guid_t security_guid;
-
-		rc = efi_name_to_guid("EFI Security Database", &security_guid);
-		if (rc < 0)
-			err(1, "Could not get dbx variable name");
-
-		rc = efi_get_variable(security_guid, "dbx", &dbx_buffer,
+		rc = efi_get_variable(efi_guid_security, "dbx", &dbx_buffer,
 					&dbx_len, &attributes);
 		if (rc < 0)
 			err(1, "Could not get dbx variable");
 	}
+
+	struct iovec *apply_bufs = NULL;
+	apply_bufs = calloc(num_apply_bufs, sizeof (struct iovec));
+	if (apply_bufs == NULL)
+		err(1, "Couldn't allocate buffers");
+
+	struct htable dbxht;
+	rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
+	if (rc < 0)
+		err(1, NULL);
+
+	for (int i = 0; apply_files != NULL && apply_files[i] != NULL; i++) {
+		int fd = open(apply_files[i], O_RDONLY);
+		int rc;
+
+		if (fd < 0)
+			err(1, "Could not read file \"%s\"", apply_files[i]);
+
+		rc = read_file(fd, (char **)&apply_bufs[i].iov_base,
+					&apply_bufs[i].iov_len);
+		if (rc < 0)
+			err(1, "Could not read file \"%s\"", apply_files[i]);
+		close(fd);
+
+		filetype ft = guess_file_type(apply_bufs[i].iov_base,
+						apply_bufs[i].iov_len);
+		if (ft != ft_append_timestamp)
+			errx(1, "dbxtool only supports timestamped updates\n");
+
+		EFI_VARIABLE_AUTHENTICATION_2 *va =
+					(EFI_VARIABLE_AUTHENTICATION_2 *)
+					apply_bufs[i].iov_base;
+		if (!is_time_sane(&va->TimeStamp)) {
+			fprintf(stderr, "Invalid timestamp ");
+			print_time(stderr, &va->TimeStamp);
+			fprintf(stderr, "\n");
+			exit(1);
+		}
+
+		//print_hex(apply_bufs[i].iov_base, apply_bufs[i].iov_len);
+		//printf("\n");
+		rc = is_update_applied(&apply_bufs[i], &dbxht);
+		if (rc == 1) {
+			printf("Update \"%s\" is already applied.\n",
+				apply_files[i]);
+		} else {
+			printf("Update \"%s\" is not applied.\n",
+				apply_files[i]);
+		}
+	}
+
+	esl_htable_destroy(&dbxht);
 
 	int ret = 0;
 	if (action == 0) {
@@ -336,11 +473,18 @@ main(int argc, char *argv[])
 	}
 
 end:
+	if (apply_bufs) {
+		for (int i = 0; i < num_apply_bufs; i++)
+			free(apply_bufs[i].iov_base);
+		free(apply_bufs);
+	}
 	if (dbx_buffer)
 		free(dbx_buffer);
 	if (ctx.dbx_file) {
 		free(ctx.dbx_file);
 	}
+
+	poptFreeContext(optCon);
 
 	return ret;
 }

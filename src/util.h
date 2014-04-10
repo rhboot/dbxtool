@@ -105,4 +105,35 @@ is_empty_guid(const efi_guid_t *guid)
 	return !guidcmp(guid,&efi_guid_empty);
 }
 
+static int
+__attribute__ ((unused))
+timcmp(EFI_TIME *a, EFI_TIME *b)
+{
+	if (a->Year != b->Year)
+		return b->Year - a->Year;
+	if (a->Month != b->Month)
+		return b->Month - a->Month;
+	if (a->Day != b->Day)
+		return b->Day - a->Day;
+	if (a->Hour != b->Hour)
+		return b->Hour - a->Hour;
+	if (a->Minute != b->Minute)
+		return b->Minute - a->Minute;
+	if (a->Second != b->Second)
+		return b->Second - a->Second;
+	return 0;
+}
+
+static void
+__attribute__ ((unused))
+print_hex(uint8_t *data, size_t len)
+{
+	char hex[] = "0123456789abcdef";
+	for (int i = 0; i < len; i++)
+		printf("%c%c", hex[(data[i] & 0xf0) >> 4],
+			       hex[(data[i] & 0x0f) >> 0]);
+}
+
+
+
 #endif /* DBXTOOL_UTIL_H */
