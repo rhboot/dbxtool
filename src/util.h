@@ -19,11 +19,12 @@
 #ifndef DBXTOOL_UTIL_H
 #define DBXTOOL_UTIL_H 1
 
+#include <efivar.h>
+#include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <unistd.h>
 
 #define xfree(x) ({if (x) { free(x); x = NULL; }})
 
@@ -88,6 +89,20 @@ free_poison(void  *addrv, ssize_t len)
 	char poison_pills[] = "\xa5\x5a";
 	for (int x = 0; x < len; x++)
 		addr[x] = poison_pills[x % 2];
+}
+
+static inline int
+__attribute__ ((unused))
+guidcmp(const efi_guid_t *a, const efi_guid_t *b)
+{
+	return memcmp(a, b, sizeof (efi_guid_t));
+}
+
+static inline int
+__attribute__ ((unused))
+is_empty_guid(const efi_guid_t *guid)
+{
+	return !guidcmp(guid,&efi_guid_empty);
 }
 
 #endif /* DBXTOOL_UTIL_H */
