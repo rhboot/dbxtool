@@ -59,7 +59,7 @@ typedef struct _EFI_CERT_BLOCK_RSA_2048_SHA256 {
 } __attribute__((aligned (1))) EFI_CERT_BLOCK_RSA_2048_SHA256;
 
 typedef struct {
-	uint32_t	dwLenght;
+	uint32_t	dwLength;
 	uint16_t	wRevision;
 	uint16_t	wCertificateType;
 	uint8_t		bCertificate[0];
@@ -72,6 +72,7 @@ typedef struct {
 typedef struct {
 	WIN_CERTIFICATE	Hdr;
 	efi_guid_t	CertType;
+	// uint8_t CertData[0];
 } __attribute__((aligned (1))) WIN_CERTIFICATE_UEFI_GUID;
 
 typedef struct {
