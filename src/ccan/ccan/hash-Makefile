@@ -1,2 +1,0 @@
-ccan/hash-Makefile: ccan/hash/hash.h ccan/hash/hash.c ccan/hash/_info
-ccan/hash.o: ccan/hash/hash.o
