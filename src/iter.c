@@ -118,6 +118,9 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 		iter->esd = (EFI_SIGNATURE_DATA *)((intptr_t)iter->esd + ss);
 	}
 
+	rc = esl_get_type(iter->iter, type);
+	if (rc < 0)
+		return rc;
 	*owner = iter->esd->SignatureOwner;
 	*data = iter->esd->SignatureData;
 	*len = ss - sizeof (iter->esd->SignatureOwner);
@@ -234,5 +237,17 @@ esl_sig_size(esl_iter *iter, size_t *ss)
 	}
 
 	*ss = iter->esl->SignatureSize;
+	return 0;
+}
+
+int
+esl_get_type(esl_iter *iter, efi_guid_t *type)
+{
+	if (!iter || !iter->esl) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	memcpy(type, &iter->esl->SignatureType, sizeof (*type));
 	return 0;
 }
