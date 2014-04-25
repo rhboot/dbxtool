@@ -168,8 +168,8 @@ guess_file_type(uint8_t *buf, size_t buflen)
 
 	if (buflen >= sizeof (va2)) {
 		memcpy(&va2, buf, sizeof(va2));
-		for (int i = 0; is_empty_guid(&guids[i]) == 0; i++) {
-			if (!guidcmp(&guids[i], &va2.AuthInfo.CertType)) {
+		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
 				//printf("Found EFI_AUTHENTICATION_2\n");
 #if 0
 				printf("time is %4d-%02d-%02d %d:%d:%d\n",
@@ -187,8 +187,8 @@ guess_file_type(uint8_t *buf, size_t buflen)
 
 	if (buflen >= sizeof (va)) {
 		memcpy(&va, buf, sizeof(va));
-		for (int i = 0; is_empty_guid(&guids[i]) == 0; i++) {
-			if (!guidcmp(&guids[i], &va2.AuthInfo.CertType)) {
+		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
 				//printf("Found EFI_AUTHENTICATION\n");
 				return ft_append_monotonic;
 			}
@@ -211,8 +211,8 @@ guess_file_type(uint8_t *buf, size_t buflen)
 			buflen > (4 + sizeof (EFI_SIGNATURE_LIST))) {
 		EFI_SIGNATURE_LIST esl;
 		memcpy(&esl, buf + 4, sizeof (EFI_SIGNATURE_LIST));
-		for (int i = 0; is_empty_guid(&guids[i]) == 0; i++) {
-			if (!guidcmp(&esl_guids[i], &esl.SignatureType)) {
+		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+			if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
 				//printf("Found EFI_SIGNATURE_LIST from sysfs\n");
 				return ft_dbx;
 			}
@@ -221,8 +221,8 @@ guess_file_type(uint8_t *buf, size_t buflen)
 
 	EFI_SIGNATURE_LIST esl;
 	memcpy(&esl, buf, sizeof (EFI_SIGNATURE_LIST));
-	for (int i = 0; is_empty_guid(&guids[i]) == 0; i++) {
-		if (!guidcmp(&esl_guids[i], &esl.SignatureType)) {
+	for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+		if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
 			//printf("Found EFI_SIGNATURE_LIST not from sysfs\n");
 			return ft_dbx_noattr;
 		}
@@ -242,8 +242,8 @@ get_cert_type_size(efi_guid_t *guid)
 		{efi_guid_sha256, 32 },
 		{efi_guid_empty, 0 }
 	};
-	for (int i = 0; guidcmp(&sizes[i].guid, &efi_guid_empty); i++) {
-		if (!guidcmp(&sizes[i].guid, guid))
+	for (int i = 0; efi_guid_cmp(&sizes[i].guid, &efi_guid_empty); i++) {
+		if (!efi_guid_cmp(&sizes[i].guid, guid))
 			return sizes[i].size;
 	}
 	errno = ENOENT;

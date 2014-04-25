@@ -42,7 +42,7 @@ esl_htable_eq(const void *l, void *r)
 	const struct esl_hash_entry *le = l, *re = r;
 
 	int ret;
-	ret = guidcmp(&le->type, &re->type);
+	ret = efi_guid_cmp(&le->type, &re->type);
 	if (ret != 0)
 		return 1;
 

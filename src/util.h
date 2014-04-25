@@ -91,20 +91,6 @@ free_poison(void  *addrv, ssize_t len)
 		addr[x] = poison_pills[x % 2];
 }
 
-static inline int
-__attribute__ ((unused))
-guidcmp(const efi_guid_t *a, const efi_guid_t *b)
-{
-	return memcmp(a, b, sizeof (efi_guid_t));
-}
-
-static inline int
-__attribute__ ((unused))
-is_empty_guid(const efi_guid_t *guid)
-{
-	return !guidcmp(guid,&efi_guid_empty);
-}
-
 static int
 __attribute__ ((unused))
 timcmp(EFI_TIME *a, EFI_TIME *b)
