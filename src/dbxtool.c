@@ -283,6 +283,19 @@ static void print_update_name(const void *base, size_t len)
 	print_time(stdout, &va->TimeStamp);
 }
 
+static void apply_update(struct db_update_file *update, uint32_t attributes)
+{
+	int rc = 0;
+	rc = efi_append_variable(efi_guid_security, "dbx",
+		update->base, update->len, attributes);
+	if (rc < 0) {
+		fprintf(stderr, "Could not apply database update \"%s\": %m\n",
+				update->name);
+		fprintf(stderr, "Cannot continue.\n");
+		exit(1);
+	}
+}
+
 static int
 is_update_applied(struct db_update_file *update, struct htable *dbx)
 {
@@ -521,6 +534,18 @@ main(int argc, char *argv[])
 				continue;
 			}
 			applied = 1;
+		}
+		if (first_unapplied != -1) {
+			printf("Applying %d updates\n",
+				num_updates - first_unapplied);
+
+			for (int i = first_unapplied; i < num_updates; i++) {
+				printf("Applying \"%s\" ", updates[i].name);
+				print_update_name(updates[i].base,
+						  updates[i].len);
+				printf("\n");
+				apply_update(&updates[i], attributes);
+			}
 		}
 
 		esl_htable_destroy(&dbxht);
