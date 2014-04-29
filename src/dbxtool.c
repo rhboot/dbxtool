@@ -41,6 +41,12 @@ typedef struct {
 	int action;
 } dbxtool_ctx;
 
+struct db_update_file {
+	const char *name;
+	void *base;
+	size_t len;
+};
+
 static inline int
 print_time(FILE *f, EFI_TIME *t)
 {
@@ -250,36 +256,55 @@ get_cert_type_size(efi_guid_t *guid)
 	return -1;
 }
 
-static int apply_buf_cmp(const void *p, const void *q)
+static int update_cmp(const void *p, const void *q)
 {
-	struct iovec *piov = (struct iovec *)p;
-	struct iovec *qiov = (struct iovec *)q;
+	struct db_update_file *piov = (struct db_update_file *)p;
+	struct db_update_file *qiov = (struct db_update_file *)q;
 
 	EFI_VARIABLE_AUTHENTICATION_2 *vap =
-		(EFI_VARIABLE_AUTHENTICATION_2 *)piov->iov_base;
+		(EFI_VARIABLE_AUTHENTICATION_2 *)piov->base;
 	EFI_VARIABLE_AUTHENTICATION_2 *vaq =
-		(EFI_VARIABLE_AUTHENTICATION_2 *)qiov->iov_base;
+		(EFI_VARIABLE_AUTHENTICATION_2 *)qiov->base;
 
 	return timecmp(&vap->TimeStamp, &vaq->TimeStamp);
 }
 
 static inline void
-sort_apply_bufs(struct iovec *apply_bufs, size_t num_apply_bufs)
+sort_updates(struct db_update_file *updates, size_t num_updates)
 {
-	qsort(apply_bufs, num_apply_bufs, sizeof (struct iovec),
-		apply_buf_cmp);
+	qsort(updates, num_updates, sizeof (struct db_update_file),
+		update_cmp);
+}
+
+static void print_update_name(const void *base, size_t len)
+{
+	EFI_VARIABLE_AUTHENTICATION_2 *va =
+		(EFI_VARIABLE_AUTHENTICATION_2 *)base;
+	print_time(stdout, &va->TimeStamp);
 }
 
 static int
-is_update_applied(struct iovec *auth, struct htable *dbx)
+is_update_applied(struct db_update_file *update, struct htable *dbx)
 {
+	/* this function is a bit of a lie.  We can't actually tell if an
+	 * update itself is installed, because to do that we'd need the
+	 * timestamp as well as the data.  We also don't know what the
+	 * most recent timestamp applied *is* (or any other time stamp),
+	 * so the only thing we actually know is if all the list entries
+	 * in the update are present, then applying it doesn't accomplish
+	 * anything.
+	 *
+	 * So we can use that as a proxy for the update itself being applied,
+	 * but that means we may try to process an update without a newer
+	 * date than the unknown previous date, which will then fail.
+	 */
 	int rc;
 	int ret = 1;
 
 	EFI_VARIABLE_AUTHENTICATION_2 *va =
 					(EFI_VARIABLE_AUTHENTICATION_2 *)
-					auth->iov_base;
-	size_t esllen = auth->iov_len
+					update->base;
+	size_t esllen = update->len
 			- sizeof (va->TimeStamp)
 			- va->AuthInfo.Hdr.dwLength;
 	uint8_t *eslbuf = (uint8_t *)
@@ -349,7 +374,7 @@ main(int argc, char *argv[])
 		errx(1, "poptReadDefaultConfig failed: %s", poptStrerror(rc));
 
 	rc = poptGetNextOpt(optCon);
-	int num_apply_bufs = 0;
+	int num_updates = 0;
 	if (action & ACTION_APPLY) {
 		if (rc >= 0)
 			errx(1, "--apply was specified with no files given");
@@ -359,7 +384,7 @@ main(int argc, char *argv[])
 			errx(1, "--apply was specified with no files given: "
 				"\"%s\": %s",
 				poptBadOption(optCon, 0), poptStrerror(rc));
-		for (int i = 0; apply_files[i] != NULL; i++, num_apply_bufs++) {
+		for (int i = 0; apply_files[i] != NULL; i++, num_updates++) {
 			poptGetArg(optCon);
 			if (access(apply_files[i], R_OK))
 				err(1, "Could not open \"%s\"", apply_files[i]);
@@ -428,60 +453,78 @@ main(int argc, char *argv[])
 			err(1, "Could not get dbx variable");
 	}
 
-	struct iovec *apply_bufs = NULL;
-	apply_bufs = calloc(num_apply_bufs, sizeof (struct iovec));
-	if (apply_bufs == NULL)
-		err(1, "Couldn't allocate buffers");
+	struct db_update_file *updates = NULL;
+	if ((action & ACTION_APPLY) && num_updates != 0) {
+		updates = calloc(num_updates, sizeof (struct db_update_file));
+		if (updates == NULL)
+			err(1, "Couldn't allocate buffers");
 
-	struct htable dbxht;
-	rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
-	if (rc < 0)
-		err(1, NULL);
-
-	for (int i = 0; apply_files != NULL && apply_files[i] != NULL; i++) {
-		int fd = open(apply_files[i], O_RDONLY);
-		int rc;
-
-		if (fd < 0)
-			err(1, "Could not read file \"%s\"", apply_files[i]);
-
-		rc = read_file(fd, (char **)&apply_bufs[i].iov_base,
-					&apply_bufs[i].iov_len);
+		struct htable dbxht;
+		rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
 		if (rc < 0)
-			err(1, "Could not read file \"%s\"", apply_files[i]);
-		close(fd);
+			err(1, NULL);
 
-		filetype ft = guess_file_type(apply_bufs[i].iov_base,
-						apply_bufs[i].iov_len);
-		if (ft != ft_append_timestamp)
-			errx(1, "dbxtool only supports timestamped updates\n");
+		for (int i = 0; apply_files != NULL && apply_files[i] != NULL;
+		     i++) {
+			int fd = open(apply_files[i], O_RDONLY);
+			int rc;
 
-		EFI_VARIABLE_AUTHENTICATION_2 *va =
+			if (fd < 0)
+				err(1, "Could not read file \"%s\"",
+					apply_files[i]);
+
+			updates[i].name = apply_files[i];
+			rc = read_file(fd, (char **)&updates[i].base,
+						&updates[i].len);
+			if (rc < 0)
+				err(1, "Could not read file \"%s\"",
+					apply_files[i]);
+			close(fd);
+
+			filetype ft = guess_file_type(updates[i].base,
+							updates[i].len);
+			if (ft != ft_append_timestamp)
+				errx(1, "dbxtool only supports timestamped "
+					"updates\n");
+
+			EFI_VARIABLE_AUTHENTICATION_2 *va =
 					(EFI_VARIABLE_AUTHENTICATION_2 *)
-					apply_bufs[i].iov_base;
-		if (!is_time_sane(&va->TimeStamp)) {
-			fprintf(stderr, "Invalid timestamp ");
-			print_time(stderr, &va->TimeStamp);
-			fprintf(stderr, "\n");
-			exit(1);
+					updates[i].base;
+			if (!is_time_sane(&va->TimeStamp)) {
+				fprintf(stderr, "Invalid timestamp ");
+				print_time(stderr, &va->TimeStamp);
+				fprintf(stderr, "\n");
+				exit(1);
+			}
 		}
-	}
-	sort_apply_bufs(apply_bufs, num_apply_bufs);
+		sort_updates(updates, num_updates);
 
-	for (int i = 0; i < num_apply_bufs; i++) {
-		//print_hex(apply_bufs[i].iov_base, apply_bufs[i].iov_len);
-		//printf("\n");
-		rc = is_update_applied(&apply_bufs[i], &dbxht);
-		if (rc == 1) {
-			printf("Update \"%s\" is already applied.\n",
-				apply_files[i]);
-		} else {
-			printf("Update \"%s\" is not applied.\n",
-				apply_files[i]);
+		int first_unapplied = -1;
+		int applied = 0;
+		for (int i = 0; i < num_updates; i++) {
+			rc = is_update_applied(&updates[i], &dbxht);
+			if (rc < 0)
+				err(1, NULL);
+			if (rc == 0) {
+				if (applied == 1) {
+					fprintf(stderr,
+						"Update set contains applied "
+						"updates older than unapplied "
+						"updates.\n");
+					fprintf(stderr,
+						"There's nothing reasonable to "
+						"do here, aborting.\n");
+					exit(1);
+				}
+				if (first_unapplied == -1)
+					first_unapplied = i;
+				continue;
+			}
+			applied = 1;
 		}
-	}
 
-	esl_htable_destroy(&dbxht);
+		esl_htable_destroy(&dbxht);
+	}
 
 	int ret = 0;
 	if (action == 0) {
@@ -496,10 +539,10 @@ main(int argc, char *argv[])
 	}
 
 end:
-	if (apply_bufs) {
-		for (int i = 0; i < num_apply_bufs; i++)
-			free(apply_bufs[i].iov_base);
-		free(apply_bufs);
+	if (updates) {
+		for (int i = 0; i < num_updates; i++)
+			free(updates[i].base);
+		free(updates);
 	}
 	if (dbx_buffer)
 		free(dbx_buffer);
