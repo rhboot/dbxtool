@@ -93,20 +93,20 @@ free_poison(void  *addrv, ssize_t len)
 
 static int
 __attribute__ ((unused))
-timcmp(EFI_TIME *a, EFI_TIME *b)
+timecmp(EFI_TIME *a, EFI_TIME *b)
 {
 	if (a->Year != b->Year)
-		return b->Year - a->Year;
+		return a->Year - b->Year;
 	if (a->Month != b->Month)
-		return b->Month - a->Month;
+		return a->Month - b->Month;
 	if (a->Day != b->Day)
-		return b->Day - a->Day;
+		return a->Day - b->Day;
 	if (a->Hour != b->Hour)
-		return b->Hour - a->Hour;
+		return a->Hour - b->Hour;
 	if (a->Minute != b->Minute)
-		return b->Minute - a->Minute;
+		return a->Minute - b->Minute;
 	if (a->Second != b->Second)
-		return b->Second - a->Second;
+		return a->Second - b->Second;
 	return 0;
 }
 
