@@ -81,16 +81,6 @@ read_file(int fd, char **bufp, size_t *lenptr) {
     return 0;
 }
 
-static void
-__attribute__ ((unused))
-free_poison(void  *addrv, ssize_t len)
-{
-	uint8_t *addr = addrv;
-	char poison_pills[] = "\xa5\x5a";
-	for (int x = 0; x < len; x++)
-		addr[x] = poison_pills[x % 2];
-}
-
 static int
 __attribute__ ((unused))
 timecmp(EFI_TIME *a, EFI_TIME *b)
