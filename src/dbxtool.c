@@ -36,6 +36,8 @@
 #define ACTION_LIST	0x1
 #define ACTION_APPLY	0x2
 
+static int verbose = 0;
+
 typedef struct {
 	char *dbx_file;
 	int action;
@@ -46,6 +48,11 @@ struct db_update_file {
 	void *base;
 	size_t len;
 };
+
+#define vprintf(fmt, args...) ({					\
+		if (verbose) 						\
+			printf(fmt, ##args);				\
+	})
 
 static inline int
 print_time(FILE *f, EFI_TIME *t)
@@ -272,6 +279,7 @@ static int update_cmp(const void *p, const void *q)
 static inline void
 sort_updates(struct db_update_file *updates, size_t num_updates)
 {
+	vprintf("Sorting updates list\n");
 	qsort(updates, num_updates, sizeof (struct db_update_file),
 		update_cmp);
 }
@@ -344,8 +352,11 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 		ehep = htable_get(dbx, esl_htable_hash(&ehe), esl_htable_eq,
 				&ehe);
 		if (!ehep) {
+			vprintf("Update entry is not applied.\n");
 			ret = 0;
 			break;
+		} else {
+			vprintf("Update entry is already applied.\n");
 		}
 	}
 	esd_iter_end(esdi);
@@ -374,6 +385,9 @@ main(int argc, char *argv[])
 		{"apply", 'a', POPT_ARG_VAL|POPT_ARGFLAG_OR,
 			&action, ACTION_APPLY,
 			"apply update files", NULL },
+		{"verbose", 'v', POPT_ARG_VAL,
+			&verbose, 1,
+			"be verbose about everything", NULL },
 		POPT_AUTOALIAS
 		POPT_AUTOHELP
 		POPT_TABLEEND
@@ -417,6 +431,7 @@ main(int argc, char *argv[])
 	size_t dbx_len = 0;
 	uint32_t attributes = 0;
 	if (ctx.dbx_file != NULL) {
+		vprintf("Loading dbx from \"%s\"\n", ctx.dbx_file);
 		int fd = open(ctx.dbx_file, O_RDWR|O_CREAT);
 		if (fd < 0)
 			err(1, "Could not open file \"%s\"", ctx.dbx_file);
@@ -433,6 +448,7 @@ main(int argc, char *argv[])
 				err(1, "Unknown file type");
 				break;
 			case ft_dbx:
+				vprintf("dbx file type is dbx\n");
 				attributes = dbx_buffer[0];
 				uint8_t *tmp = malloc(dbx_len - 4);
 				if (!tmp)
@@ -444,6 +460,7 @@ main(int argc, char *argv[])
 				dbx_len -= 4;
 				break;
 			case ft_dbx_noattr:
+				vprintf("dbx file type is dbx_noattr\n");
 				attributes =
 					EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS |
 					EFI_VARIABLE_RUNTIME_ACCESS |
@@ -468,17 +485,20 @@ main(int argc, char *argv[])
 
 	struct db_update_file *updates = NULL;
 	if ((action & ACTION_APPLY) && num_updates != 0) {
+		vprintf("Attempting to apply %d updates\n", num_updates);
 		updates = calloc(num_updates, sizeof (struct db_update_file));
 		if (updates == NULL)
 			err(1, "Couldn't allocate buffers");
 
 		struct htable dbxht;
+		memset(&dbxht, '\0', sizeof (dbxht));
 		rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
 		if (rc < 0)
 			err(1, NULL);
 
 		for (int i = 0; apply_files != NULL && apply_files[i] != NULL;
 		     i++) {
+			vprintf("Loading update file \"%s\"\n", apply_files[i]);
 			int fd = open(apply_files[i], O_RDONLY);
 			int rc;
 
@@ -515,6 +535,8 @@ main(int argc, char *argv[])
 		int first_unapplied = -1;
 		int applied = 0;
 		for (int i = 0; i < num_updates; i++) {
+			vprintf("Checking if \"%s\" has been applied.\n",
+				updates[i].name);
 			rc = is_update_applied(&updates[i], &dbxht);
 			if (rc < 0)
 				err(1, NULL);
@@ -529,10 +551,14 @@ main(int argc, char *argv[])
 						"do here, aborting.\n");
 					exit(1);
 				}
+				vprintf("Update \"%s\" is not applied\n",
+					updates[i].name);
 				if (first_unapplied == -1)
 					first_unapplied = i;
 				continue;
 			}
+			vprintf("Update \"%s\" is already applied\n",
+					updates[i].name);
 			applied = 1;
 		}
 		if (first_unapplied != -1) {
