@@ -250,6 +250,26 @@ get_cert_type_size(efi_guid_t *guid)
 	return -1;
 }
 
+static int apply_buf_cmp(const void *p, const void *q)
+{
+	struct iovec *piov = (struct iovec *)p;
+	struct iovec *qiov = (struct iovec *)q;
+
+	EFI_VARIABLE_AUTHENTICATION_2 *vap =
+		(EFI_VARIABLE_AUTHENTICATION_2 *)piov->iov_base;
+	EFI_VARIABLE_AUTHENTICATION_2 *vaq =
+		(EFI_VARIABLE_AUTHENTICATION_2 *)qiov->iov_base;
+
+	return timecmp(&vap->TimeStamp, &vaq->TimeStamp);
+}
+
+static inline void
+sort_apply_bufs(struct iovec *apply_bufs, size_t num_apply_bufs)
+{
+	qsort(apply_bufs, num_apply_bufs, sizeof (struct iovec),
+		apply_buf_cmp);
+}
+
 static int
 is_update_applied(struct iovec *auth, struct htable *dbx)
 {
@@ -445,7 +465,10 @@ main(int argc, char *argv[])
 			fprintf(stderr, "\n");
 			exit(1);
 		}
+	}
+	sort_apply_bufs(apply_bufs, num_apply_bufs);
 
+	for (int i = 0; i < num_apply_bufs; i++) {
 		//print_hex(apply_bufs[i].iov_base, apply_bufs[i].iov_len);
 		//printf("\n");
 		rc = is_update_applied(&apply_bufs[i], &dbxht);
