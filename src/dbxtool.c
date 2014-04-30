@@ -311,7 +311,7 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 	 * anything.
 	 *
 	 * So we can use that as a proxy for the update itself being applied,
-	 * but that means we may try to process an update without a newer
+	 * but that means we may try to process an update with a newer
 	 * date than the unknown previous date, which will then fail.
 	 */
 	int rc;
