@@ -91,6 +91,7 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 
 	iter->i += 1;
 	if (iter->i == iter->nmemb) {
+		vprintf("Getting next EFI_SIGNATURE_DATA\n");
 		iter->i = 0;
 		rc = esl_iter_next(iter->iter, type, &iter->esd, &iter->len);
 		if (rc < 1)
@@ -111,6 +112,7 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 
 		iter->nmemb = (sls - sizeof (EFI_SIGNATURE_LIST) - slh) / ss;
 	} else {
+		vprintf("Getting next esd element\n");
 		rc = esl_sig_size(iter->iter, &ss);
 		if (rc < 0)
 			return rc;
@@ -186,8 +188,10 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 		return -EINVAL;
 
 	if (!iter->esl) {
+		vprintf("Getting next ESL buffer\n");
 		iter->esl = (EFI_SIGNATURE_LIST *)iter->buf;
 	} else {
+		vprintf("Getting next EFI_SIGNATURE_LIST\n");
 		iter->offset += iter->esl->SignatureListSize;
 		if (iter->offset >= iter->len)
 			return 0;
