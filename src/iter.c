@@ -110,6 +110,10 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 		if (rc < 0)
 			return rc;
 
+		/* if we'd have leftover data, then this ESD is garbage. */
+		if ((sls - sizeof (EFI_SIGNATURE_LIST) - slh) % ss != 0)
+			return -EINVAL;
+
 		iter->nmemb = (sls - sizeof (EFI_SIGNATURE_LIST) - slh) / ss;
 	} else {
 		vprintf("Getting next esd element\n");
@@ -197,8 +201,20 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 			return 0;
 		iter->esl = (EFI_SIGNATURE_LIST *)((intptr_t)iter->buf
 						+ iter->offset);
-
 	}
+
+	EFI_SIGNATURE_LIST esl;
+	memset(&esl, '\0', sizeof (esl));
+	/* if somehow we've gotten a buffer that's bigger than our
+	 * real list, this will be zeros, so we've hit the end. */
+	if (!memcmp(&esl, iter->esl, sizeof (esl)))
+		return 0;
+
+	/* if this list size is too big for our data, then it's malformed
+	 * data and we're done. */
+	if (iter->esl->SignatureListSize > iter->len - iter->offset)
+		return -EINVAL;
+
 	*type = iter->esl->SignatureType;
 	*data = (EFI_SIGNATURE_DATA *)((intptr_t)iter->esl
 			+ sizeof (EFI_SIGNATURE_LIST)
@@ -215,6 +231,11 @@ esl_list_size(esl_iter *iter, size_t *sls)
 		errno = EINVAL;
 		return -1;
 	}
+	/* this has to be at least as large as its header to be valid */
+	if (iter->esl->SignatureListSize < sizeof (EFI_SIGNATURE_LIST)) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	*sls = iter->esl->SignatureListSize;
 	return 0;
@@ -227,6 +248,11 @@ esl_header_size(esl_iter *iter, size_t *slh)
 		errno = EINVAL;
 		return -1;
 	}
+	/* this is almost always zero, but it *can't* be negative and valid. */
+	if (iter->esl->SignatureHeaderSize < 0) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	*slh = iter->esl->SignatureHeaderSize;
 	return 0;
@@ -236,6 +262,11 @@ int
 esl_sig_size(esl_iter *iter, size_t *ss)
 {
 	if (!iter || !iter->esl) {
+		errno = EINVAL;
+		return -1;
+	}
+	/* If signature size isn't positive, there's invalid data. */
+	if (iter->esl->SignatureSize < 1) {
 		errno = EINVAL;
 		return -1;
 	}
