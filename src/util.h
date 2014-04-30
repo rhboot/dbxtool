@@ -33,6 +33,12 @@
 		errno = __saved_errno;			\
 	})
 
+extern int verbose;
+#define vprintf(fmt, args...) ({					\
+		if (verbose)						\
+			printf(fmt, ##args);				\
+	})
+
 static inline int
 __attribute__ ((unused))
 read_file(int fd, char **bufp, size_t *lenptr) {

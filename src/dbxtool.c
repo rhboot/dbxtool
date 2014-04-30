@@ -36,7 +36,7 @@
 #define ACTION_LIST	0x1
 #define ACTION_APPLY	0x2
 
-static int verbose = 0;
+int verbose = 0;
 
 typedef struct {
 	char *dbx_file;
@@ -48,11 +48,6 @@ struct db_update_file {
 	void *base;
 	size_t len;
 };
-
-#define vprintf(fmt, args...) ({					\
-		if (verbose) 						\
-			printf(fmt, ##args);				\
-	})
 
 static inline int
 print_time(FILE *f, EFI_TIME *t)
