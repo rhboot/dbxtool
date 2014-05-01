@@ -2,7 +2,7 @@ TOPDIR = $(shell echo $$PWD)
 
 include $(TOPDIR)/Make.defaults
 
-SUBDIRS := src
+SUBDIRS := src data
 DOCDIR := /share/doc/
 VERSION = 0.1
 
