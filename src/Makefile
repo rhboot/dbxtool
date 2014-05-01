@@ -38,6 +38,8 @@ clean : depclean
 install :
 	$(INSTALL) -d -m 755 $(INSTALLROOT)$(PREFIX)/bin/
 	$(INSTALL) -m 755 dbxtool $(INSTALLROOT)$(PREFIX)/bin/
+	$(INSTALL) -d -m 755 $(INSTALLROOT)$(PREFIX)/lib/systemd/system/
+	$(INSTALL) -m 644 dbxtool.service $(INSTALLROOT)$(PREFIX)/lib/systemd/system
 
 .PHONY: all deps clean depclean install
 
