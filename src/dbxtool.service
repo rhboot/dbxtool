@@ -3,4 +3,4 @@ Description=Secure Boot DBX updater
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/dbxtool -a /usr/share/dbxtool/*.bin
+ExecStart=/usr/bin/dbxtool -a /usr/share/dbxtool/

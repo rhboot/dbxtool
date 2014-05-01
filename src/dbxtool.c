@@ -17,8 +17,10 @@
  * Author(s): Peter Jones <pjones@redhat.com>
  */
 
+#include <dirent.h>
 #include <efivar.h>
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <popt.h>
 #include <stdio.h>
@@ -359,6 +361,117 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 	return ret;
 }
 
+static int
+endswith(char *str, char *suffix)
+{
+	if (!str || !suffix || !*str || !*suffix)
+		return 0;
+
+	size_t str_len = strlen(str);
+	size_t suffix_len = strlen(suffix);
+	if (str_len < suffix_len)
+		return 0;
+
+	return !strcmp(str + (str_len - suffix_len), suffix);
+}
+
+static void
+load_update_file(struct db_update_file *update_ret, const char *path, int infd)
+{
+	int fd = infd >= 0 ? infd : open(path, O_RDONLY);
+	struct db_update_file update;
+	int rc;
+
+	if (fd < 0)
+		err(1, "1 Could not read file \"%s\"", path);
+
+	update.name = path;
+	rc = read_file(fd, (char **)&update.base, &update.len);
+	if (rc < 0)
+		err(1, "2 Could not read file \"%s\"", path);
+
+	if (infd < 0)
+		close(fd);
+
+	filetype ft = guess_file_type(update.base, update.len);
+	if (ft != ft_append_timestamp)
+		errx(1, "dbxtool only supports timestamped updates\n");
+
+	EFI_VARIABLE_AUTHENTICATION_2 *va =
+			(EFI_VARIABLE_AUTHENTICATION_2 *)update.base;
+
+	if (!is_time_sane(&va->TimeStamp)) {
+		fprintf(stderr,
+			"\"%s\" contains a time stamp that is invalid: ",
+			path);
+		print_time(stderr, &va->TimeStamp);
+		fprintf(stderr, "\n");
+		exit(1);
+	}
+
+	memcpy(update_ret, &update, sizeof (update));
+}
+
+static void
+get_apply_files_from_dir(const char *dirname,
+			struct db_update_file **updates_ret,
+			int *num_updates_ret)
+{
+	int rc;
+	DIR *dir;
+	struct db_update_file *updates = NULL;
+	int num_updates = 0;
+
+	dir = opendir(dirname);
+	if (!dir)
+		err(1, "Couldn't open directory \"%s\"", dirname);
+
+	int dfd = dirfd(dir);
+	if (dfd < 0)
+		err(1, "Couldn't get directory \"%s\"", dirname);
+	while (1) {
+		struct dirent *d;
+
+		errno = 0;
+		if (!(d = readdir(dir))) {
+			if (errno)
+				err(1, "Couldn't read directory \"%s\"",
+					dirname);
+			break;
+		}
+
+		if (!endswith(d->d_name, ".bin"))
+			continue;
+
+		struct stat sb;
+		rc = fstatat(dfd, d->d_name, &sb, 0);
+		if (rc < 0)
+			err(1, "Could not stat \"%s\"", d->d_name);
+
+		if (!S_ISREG(sb.st_mode)) {
+			vprintf("Skipping non regular file \"%s\"",
+				d->d_name);
+			continue;
+		}
+		num_updates++;
+
+		struct db_update_file *new_updates = realloc(updates,
+					num_updates * sizeof (*updates));
+		if (!new_updates)
+			err(1, "Could not process updates");
+		updates = new_updates;
+
+		int fd = openat(dfd, d->d_name, O_RDONLY);
+		if (fd < 0)
+			err(1, "Couldn't open update \"%s\"", d->d_name);
+
+		load_update_file(&new_updates[num_updates-1], d->d_name, fd);
+		close(fd);
+	}
+	*updates_ret = updates;
+	*num_updates_ret = num_updates;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -433,7 +546,7 @@ main(int argc, char *argv[])
 
 		rc = read_file(fd, (char **)&dbx_buffer, &dbx_len);
 		if (rc < 0)
-			err(1, "Could not read file \"%s\"", ctx.dbx_file);
+			err(1, "4 Could not read file \"%s\"", ctx.dbx_file);
 
 		close(fd);
 
@@ -480,51 +593,44 @@ main(int argc, char *argv[])
 
 	struct db_update_file *updates = NULL;
 	if ((action & ACTION_APPLY) && num_updates != 0) {
-		vprintf("Attempting to apply %d updates\n", num_updates);
-		updates = calloc(num_updates, sizeof (struct db_update_file));
-		if (updates == NULL)
-			err(1, "Couldn't allocate buffers");
-
 		struct htable dbxht;
 		memset(&dbxht, '\0', sizeof (dbxht));
 		rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
 		if (rc < 0)
 			err(1, NULL);
 
-		for (int i = 0; apply_files != NULL && apply_files[i] != NULL;
-		     i++) {
-			vprintf("Loading update file \"%s\"\n", apply_files[i]);
-			int fd = open(apply_files[i], O_RDONLY);
-			int rc;
-
-			if (fd < 0)
-				err(1, "Could not read file \"%s\"",
-					apply_files[i]);
-
-			updates[i].name = apply_files[i];
-			rc = read_file(fd, (char **)&updates[i].base,
-						&updates[i].len);
+		if (num_updates == 1) {
+			struct stat sb;
+			rc = stat(apply_files[0], &sb);
 			if (rc < 0)
-				err(1, "Could not read file \"%s\"",
-					apply_files[i]);
-			close(fd);
+				err(1, "Couldn't access \"%s\"",
+					apply_files[0]);
 
-			filetype ft = guess_file_type(updates[i].base,
-							updates[i].len);
-			if (ft != ft_append_timestamp)
-				errx(1, "dbxtool only supports timestamped "
-					"updates\n");
-
-			EFI_VARIABLE_AUTHENTICATION_2 *va =
-					(EFI_VARIABLE_AUTHENTICATION_2 *)
-					updates[i].base;
-			if (!is_time_sane(&va->TimeStamp)) {
-				fprintf(stderr, "Invalid timestamp ");
-				print_time(stderr, &va->TimeStamp);
-				fprintf(stderr, "\n");
-				exit(1);
+			const char *dirname = apply_files[0];
+			if (S_ISDIR(sb.st_mode)) {
+				int new_num_updates = 0;
+				get_apply_files_from_dir(dirname,
+						&updates,
+						&new_num_updates);
+				num_updates = new_num_updates;
 			}
 		}
+		if (updates == NULL) {
+			updates = calloc(num_updates,
+				sizeof (struct db_update_file));
+			if (updates == NULL)
+				err(1, "Couldn't allocate buffers");
+			for (int i = 0;
+			     apply_files != NULL && apply_files[i] != NULL;
+			     i++) {
+				vprintf("Loading update file \"%s\"\n",
+					apply_files[i]);
+				load_update_file(&updates[i],
+						apply_files[i], -1);
+			}
+		}
+
+		vprintf("Attempting to apply %d updates\n", num_updates);
 		sort_updates(updates, num_updates);
 
 		int first_unapplied = -1;
