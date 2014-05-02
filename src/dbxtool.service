@@ -1,5 +1,9 @@
 [Unit]
 Description=Secure Boot DBX updater
+RequiresMountsFor=/usr/bin/ /usr/share/dbxtool/
+
+[Install]
+WantedBy=basic.target multi-user.target
 
 [Service]
 Type=oneshot
