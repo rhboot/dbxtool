@@ -535,6 +535,7 @@ main(int argc, char *argv[])
 		errx(1, "Invalid argument: \"%s\"",
 			poptPeekArg(optCon));
 
+	uint8_t *orig_dbx_buffer = NULL;
 	uint8_t *dbx_buffer = NULL;
 	size_t dbx_len = 0;
 	uint32_t attributes = 0;
@@ -575,6 +576,16 @@ main(int argc, char *argv[])
 					EFI_VARIABLE_BOOTSERVICE_ACCESS |
 					EFI_VARIABLE_NON_VOLATILE;
 				break;
+			case ft_append_timestamp: {
+				EFI_VARIABLE_AUTHENTICATION_2 *va =
+					(void *)dbx_buffer;
+				orig_dbx_buffer = dbx_buffer;
+				off_t offset = va->AuthInfo.Hdr.dwLength
+						+ sizeof (efi_guid_t);
+				dbx_buffer = (void *)((intptr_t)va + offset);
+				dbx_len -= offset;
+				break;
+			}
 			default:
 				errno = EINVAL;
 				err(1, "Sorry, can't handle this yet");
@@ -696,8 +707,11 @@ end:
 			free(updates[i].base);
 		free(updates);
 	}
-	if (dbx_buffer)
+	if (orig_dbx_buffer) {
+		free(orig_dbx_buffer);
+	} else if (dbx_buffer) {
 		free(dbx_buffer);
+	}
 	if (ctx.dbx_file) {
 		free(ctx.dbx_file);
 	}
