@@ -40,6 +40,9 @@ install :
 	$(INSTALL) -m 755 dbxtool $(INSTALLROOT)$(PREFIX)/bin/
 	$(INSTALL) -d -m 755 $(INSTALLROOT)$(PREFIX)/lib/systemd/system/
 	$(INSTALL) -m 644 dbxtool.service $(INSTALLROOT)$(PREFIX)/lib/systemd/system
+	$(INSTALL) -d -m 755 $(INSTALLROOT)$(PREFIX)/share/man/man1/
+	$(INSTALL) -m 644 dbxtool.1 $(INSTALLROOT)$(PREFIX)/share/man/man1/
+	$(INSTALL) -d -m 755 $(INSTALLROOT)/etc/rpm/
 
 .PHONY: all deps clean depclean install
 

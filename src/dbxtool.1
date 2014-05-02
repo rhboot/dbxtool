@@ -1,0 +1,46 @@
+.TH DBXTOOL 1 "Thu May 02 2014"
+.SH NAME
+dbxtool \- mechanism to distribute and apply UEFI Secure Boot DBX updates
+
+.SH SYNOPSIS
+\fBdbxtool\fR [--dbx=\fIdbxfile\fR | -d \fIdbxfile\fR ] [ --list | -l ]
+	[ --verbose | -v ] [ --apply | -a ]
+	[ \fIupdatedir\fR | \fIupdate0\fR [ ... \fIupdateN\fR ]]
+
+.SH DESCRIPTION
+\fBdbxtool\fR is a command line tool and oneshot systemd service for
+applying UEFI Secure Boot DBX updates.
+
+.SH OPTIONS
+.TP
+\fB-\-dbx\fR=\fIdbxfile\fR
+Use a specified file for dbx rather than the system variable.  This option
+only works with \fB-\-list\fR.
+
+.TP
+\fB-\-list\fR
+List DBX entries in the system database, or in a copy of it or an update file.
+
+.TP
+\fB-\-verbose\fR
+Show a bunch of verbose output about what dbxtool is doing.
+
+.TP
+\fB-\-apply\fR
+Apply updates specified on the command line.  Does not work with \fB-\-dbx\fR.
+This argument requires either an \fIupdatedir\fR argument or one or more
+\fIupdateN\fR arguments.
+
+.TP
+\fIupdatedir\fR
+Directory of dbx updates.  Filenames must end in ".bin".  This argument only
+works with \fB-\-apply\fR.
+
+.TP
+\fIupdate0\fR
+An individual dbx update.  This argument only works with \fB-\-apply\fR.
+
+.SH AUTHORS
+.nf
+Peter Jones
+.fi
