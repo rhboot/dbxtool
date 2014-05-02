@@ -176,20 +176,20 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		efi_guid_empty
 	};
 
+	vprintf("Attempting to identify filetype: ");
+
 	if (buflen >= sizeof (va2)) {
 		memcpy(&va2, buf, sizeof(va2));
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
 			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
-				//printf("Found EFI_AUTHENTICATION_2\n");
-#if 0
-				printf("time is %4d-%02d-%02d %d:%d:%d\n",
+				vprintf("ft_append_timestamp is "
+					"%4d-%02d-%02d %d:%d:%d\n",
 					va2.TimeStamp.Year,
 					va2.TimeStamp.Month,
 					va2.TimeStamp.Day,
 					va2.TimeStamp.Hour,
 					va2.TimeStamp.Minute,
 					va2.TimeStamp.Second);
-#endif
 				return ft_append_timestamp;
 			}
 		}
@@ -199,7 +199,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		memcpy(&va, buf, sizeof(va));
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
 			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
-				//printf("Found EFI_AUTHENTICATION\n");
+				vprintf("ft_append_monotonic\n");
 				return ft_append_monotonic;
 			}
 		}
@@ -223,7 +223,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		memcpy(&esl, buf + 4, sizeof (EFI_SIGNATURE_LIST));
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
 			if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
-				//printf("Found EFI_SIGNATURE_LIST from sysfs\n");
+				vprintf("ft_dbx\n");
 				return ft_dbx;
 			}
 		}
@@ -233,12 +233,12 @@ guess_file_type(uint8_t *buf, size_t buflen)
 	memcpy(&esl, buf, sizeof (EFI_SIGNATURE_LIST));
 	for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
 		if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
-			//printf("Found EFI_SIGNATURE_LIST not from sysfs\n");
+			vprintf("ft_dbx_noattr\n");
 			return ft_dbx_noattr;
 		}
 	}
 
-	//printf("what the hell\n");
+	vprintf("ft_unknown\n");
 	return ft_unknown;
 }
 
