@@ -13,9 +13,8 @@ clean :
 
 install :
 	$(INSTALL) -d -m 755 $(INSTALLROOT)$(PREFIX)/share/dbxtool/
-	for x in *.bin ; do \
-		$(INSTALL) -m 644 $$x $(INSTALLROOT)$(PREFIX)/share/dbxtool/ ;\
-	done
+	$(INSTALL) -m 644 $$(ls -1 DBXUpdate*.bin | sort -n | tail -1) \
+		$(INSTALLROOT)$(PREFIX)/share/dbxtool/
 
 .PHONY: all deps clean depclean install
 
