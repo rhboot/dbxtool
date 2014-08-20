@@ -505,7 +505,7 @@ main(int argc, char *argv[])
 				options, 0);
 
 	rc = poptReadDefaultConfig(optCon, 0);
-        if (rc < 0)
+        if (rc < 0 && !(rc == POPT_ERROR_ERRNO && errno == ENOENT))
 		errx(1, "poptReadDefaultConfig failed: %s", poptStrerror(rc));
 
 	rc = poptGetNextOpt(optCon);
