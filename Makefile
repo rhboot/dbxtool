@@ -35,11 +35,13 @@ test-archive:
 	@rm -rf /tmp/dbxtool-$(VERSION)
 	@echo "The archive is in dbxtool-$(VERSION).tar.bz2"
 
-archive:
-	git tag $(GITTAG) refs/heads/master
+tag:
+	git tag dbxtool-$(GITTAG) refs/heads/master
+
+archive: tag
 	@rm -rf /tmp/dbxtool-$(VERSION) /tmp/dbxtool-$(VERSION)-tmp
 	@mkdir -p /tmp/dbxtool-$(VERSION)-tmp
-	@git archive --format=tar $(GITTAG) | ( cd /tmp/dbxtool-$(VERSION)-tmp/ ; tar x )
+	@git archive --format=tar dbxtool-$(GITTAG) | ( cd /tmp/dbxtool-$(VERSION)-tmp/ ; tar x )
 	@mv /tmp/dbxtool-$(VERSION)-tmp/ /tmp/dbxtool-$(VERSION)/
 	@dir=$$PWD; cd /tmp; tar -c --bzip2 -f $$dir/dbxtool-$(VERSION).tar.bz2 dbxtool-$(VERSION)
 	@rm -rf /tmp/dbxtool-$(VERSION)
