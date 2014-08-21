@@ -33,7 +33,8 @@ make PREFIX=%{_prefix} LIBDIR=%{_libdir} INSTALLROOT=%{buildroot} \
 rm -rf $RPM_BUILD_ROOT
 
 %files
-%doc COPYING
+%{!?_licensedir:%global license %%doc}
+%license COPYING
 %{_bindir}/dbxtool
 %{_mandir}/man1/*
 %dir %{_datadir}/dbxtool/
