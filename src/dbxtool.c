@@ -90,7 +90,7 @@ is_time_sane(EFI_TIME *t)
 		default:
 			return 0;
 	}
-	if (t->Day < 0 || t->Day > mlen)
+	if (t->Day == 0 || t->Day > mlen)
 		return 0;
 	if (t->Year < 1998)
 		return 0;

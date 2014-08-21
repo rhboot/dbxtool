@@ -248,11 +248,6 @@ esl_header_size(esl_iter *iter, size_t *slh)
 		errno = EINVAL;
 		return -1;
 	}
-	/* this is almost always zero, but it *can't* be negative and valid. */
-	if (iter->esl->SignatureHeaderSize < 0) {
-		errno = EINVAL;
-		return -1;
-	}
 
 	*slh = iter->esl->SignatureHeaderSize;
 	return 0;
