@@ -28,19 +28,16 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p %{buildroot}/%{_libdir}
 make PREFIX=%{_prefix} LIBDIR=%{_libdir} INSTALLROOT=%{buildroot} \
         install
-
-%clean
-rm -rf $RPM_BUILD_ROOT
+rm -f %{buildroot}/%{_docdir}/%{name}/COPYING
 
 %files
 %{!?_licensedir:%global license %%doc}
 %license COPYING
 %{_bindir}/dbxtool
-%{_mandir}/man1/*
+%doc %{_mandir}/man1/*
 %dir %{_datadir}/dbxtool/
 %{_datadir}/dbxtool/*.bin
 %{_unitdir}/dbxtool.service
-%{_mandir}/man1/*
 
 %changelog
 * Wed Aug 20 2014 Peter Jones <pjones@redhat.com> - 0.4-1
