@@ -27,6 +27,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include "esl.h"
 #include "eslhtable.h"
@@ -601,8 +602,22 @@ main(int argc, char *argv[])
 
 		rc = efi_get_variable(efi_guid_security, "dbx", &dbx_buffer,
 					&dbx_len, &attributes);
-		if (rc < 0)
-			err(1, "Could not get dbx variable");
+		if (rc < 0) {
+			/* a missing dbx variable is okay as long as "apply"
+			 * is among the requested actions */
+			if (errno != ENOENT || !(action & ACTION_APPLY)) {
+				err(1, "Could not get dbx variable");
+			}
+
+			assert(dbx_buffer == NULL);
+			assert(dbx_len == 0);
+			attributes =
+				EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS |
+				EFI_VARIABLE_RUNTIME_ACCESS |
+				EFI_VARIABLE_BOOTSERVICE_ACCESS |
+				EFI_VARIABLE_NON_VOLATILE |
+				EFI_VARIABLE_APPEND_WRITE;
+		}
 	}
 
 	struct db_update_file *updates = NULL;
