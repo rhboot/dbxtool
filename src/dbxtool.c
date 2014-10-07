@@ -221,7 +221,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 			buflen > (4 + sizeof (EFI_SIGNATURE_LIST))) {
 		EFI_SIGNATURE_LIST esl;
 		memcpy(&esl, buf + 4, sizeof (EFI_SIGNATURE_LIST));
-		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+		for (int i = 0; efi_guid_is_empty(&esl_guids[i]) == 0; i++) {
 			if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
 				vprintf("ft_dbx\n");
 				return ft_dbx;
@@ -231,7 +231,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 
 	EFI_SIGNATURE_LIST esl;
 	memcpy(&esl, buf, sizeof (EFI_SIGNATURE_LIST));
-	for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+	for (int i = 0; efi_guid_is_empty(&esl_guids[i]) == 0; i++) {
 		if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
 			vprintf("ft_dbx_noattr\n");
 			return ft_dbx_noattr;
