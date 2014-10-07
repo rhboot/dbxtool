@@ -65,6 +65,11 @@ esl_htable_create(struct htable *ht, uint8_t *dbx_buf, size_t dbx_len)
 	int rc;
 	int ret = 0;
 
+	if (dbx_len == 0) {
+		htable_init(ht, esl_htable_rehash, NULL);
+		return 0;
+	}
+
 	rc = esd_iter_new(&iter, dbx_buf, dbx_len);
 	if (rc < 0)
 		err(1, NULL);
