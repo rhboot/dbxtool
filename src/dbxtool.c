@@ -707,14 +707,8 @@ end:
 			free(updates[i].base);
 		free(updates);
 	}
-	if (orig_dbx_buffer) {
-		free(orig_dbx_buffer);
-	} else if (dbx_buffer) {
-		free(dbx_buffer);
-	}
-	if (ctx.dbx_file) {
-		free(ctx.dbx_file);
-	}
+	free(orig_dbx_buffer ? orig_dbx_buffer : dbx_buffer);
+	free(ctx.dbx_file);
 
 	poptFreeContext(optCon);
 
