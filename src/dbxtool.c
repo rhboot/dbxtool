@@ -103,6 +103,9 @@ dump_dbx(uint8_t *buf, size_t len)
 	int rc;
 	esd_iter *iter = NULL;
 
+	if (len == 0)
+		return 0;
+
 	rc = esd_iter_new(&iter, buf, len);
 	if (rc < 0)
 		err(1, NULL);
