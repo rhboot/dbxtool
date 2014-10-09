@@ -125,12 +125,12 @@ dump_dbx(uint8_t *buf, size_t len)
 
 
 		char *typestr = NULL;
-		int rc = efi_guid_to_symbol(&type, &typestr);
+		int rc = efi_guid_to_id_guid(&type, &typestr);
 		if (rc < 0)
 			err(1, "bad type guid");
 
-		char *ownerstr;
-		rc = efi_guid_to_symbol(&owner, &ownerstr);
+		char *ownerstr = NULL;
+		rc = efi_guid_to_id_guid(&owner, &ownerstr);
 		if (rc < 0)
 			err(1, "bad owner guid");
 
