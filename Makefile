@@ -36,7 +36,7 @@ test-archive:
 	@echo "The archive is in dbxtool-$(VERSION).tar.bz2"
 
 tag:
-	git tag dbxtool-$(GITTAG) refs/heads/master
+	git tag -s dbxtool-$(GITTAG) refs/heads/master
 
 archive: tag
 	@rm -rf /tmp/dbxtool-$(VERSION) /tmp/dbxtool-$(VERSION)-tmp
