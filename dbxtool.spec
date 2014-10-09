@@ -1,5 +1,5 @@
 Name:           dbxtool
-Version:        0.5
+Version:        0.6
 Release:        1%{?dist}
 Summary:        Secure Boot DBX updater
 License:        GPLv2
@@ -42,6 +42,10 @@ rm -f %{buildroot}/%{_docdir}/%{name}/COPYING
 %{_unitdir}/dbxtool.service
 
 %changelog
+* Wed Oct 08 2014 Peter Jones <pjones@redhat.com> - 0.6-1
+- Update to 0.6
+- make "dbxtool -l" correctly show not-well-known guids.
+
 * Tue Oct 07 2014 Peter Jones <pjones@redhat.com> - 0.5-1
 - Update to 0.5:
 - make applying to dbx when it doesn't exist work (lersek)
