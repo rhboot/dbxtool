@@ -182,9 +182,26 @@ guess_file_type(uint8_t *buf, size_t buflen)
 
 	vprintf("Attempting to identify filetype: ");
 
-	if (buflen >= sizeof (va2)) {
+	while (buflen >= sizeof (va2)) {
+		char *guidname = NULL;
+
 		memcpy(&va2, buf, sizeof(va2));
+		efi_guid_to_id_guid(&va2.AuthInfo.CertType, &guidname);
+		vprintf("va2 guid is %s ", guidname);
+		free(guidname);
+		guidname = NULL;
+		if (efi_guid_is_empty(&va2.AuthInfo.CertType)) {
+			vprintf("cannot be va2 data\n");
+			break;
+		} else {
+			vprintf("\n");
+		}
+
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
+			efi_guid_to_id_guid(&guids[i], &guidname);
+			vprintf("guid table guid is %s\n", guidname);
+			free(guidname);
+			guidname = NULL;
 			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
 				vprintf("ft_append_timestamp is "
 					"%4d-%02d-%02d %d:%d:%d\n",
@@ -197,20 +214,36 @@ guess_file_type(uint8_t *buf, size_t buflen)
 				return ft_append_timestamp;
 			}
 		}
+		break;
 	}
 
-	if (buflen >= sizeof (va)) {
+	while (buflen >= sizeof (va)) {
+		char *guidname = NULL;
+
 		memcpy(&va, buf, sizeof(va));
+		efi_guid_to_id_guid(&va.AuthInfo.CertType, &guidname);
+		vprintf("va guid is %s ", guidname);
+		free(guidname);
+		guidname = NULL;
+		if (efi_guid_is_empty(&va.AuthInfo.CertType)) {
+			vprintf("cannot be va data\n");
+			break;
+		} else {
+			vprintf("\n");
+		}
+
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
-			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
+			if (!efi_guid_cmp(&guids[i], &va.AuthInfo.CertType)) {
 				vprintf("ft_append_monotonic\n");
 				return ft_append_monotonic;
 			}
 		}
+		break;
 	}
 
 	/* if we get a file that's just dd-ed from sysfs,
 	 * it'll have some attribute bits at the beginning */
+	vprintf("buf[0] is 0x%02x\n", buf[0]);
 	if ((buf[0] &
 			~(EFI_VARIABLE_NON_VOLATILE|
 			  EFI_VARIABLE_BOOTSERVICE_ACCESS|
@@ -709,7 +742,7 @@ main(int argc, char *argv[])
 
 	int ret = 0;
 	if (action == 0) {
-		fprintf(stderr, "No action specified");
+		fprintf(stderr, "No action specified\n");
 		ret = 1;
 		goto end;
 	}
