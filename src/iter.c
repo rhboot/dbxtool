@@ -24,6 +24,7 @@
 #include "esl.h"
 #include "iter.h"
 #include "util.h"
+#include "x509.h"
 
 struct esd_iter {
 	esl_iter *iter;
@@ -96,6 +97,24 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 		rc = esl_iter_next(iter->iter, type, &iter->esd, &iter->len);
 		if (rc < 1)
 			return rc;
+
+		if (!efi_guid_cmp(type, &efi_guid_x509_cert)) {
+			int32_t asn1size;
+
+			asn1size = GetASN1SequenceSize(iter->esd->SignatureData,
+				iter->len - sizeof (iter->esd->SignatureOwner));
+
+			if (asn1size < 0) {
+				warnx("iterator data claims to be an X.509 "
+				      "Cert but is not valid ASN.1 DER");
+			} else if (asn1size != iter->len -
+					sizeof (iter->esd->SignatureOwner)) {
+				warnx("X.509 Cert ASN.1 size does not match "
+				      "SignatureList Size (%d vs %ld)",
+				      asn1size, iter->len -
+					sizeof (iter->esd->SignatureOwner));
+			}
+		}
 
 		size_t sls, slh;
 		rc = esl_list_size(iter->iter, &sls);
@@ -196,6 +215,27 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 		iter->esl = (EFI_SIGNATURE_LIST *)iter->buf;
 	} else {
 		vprintf("Getting next EFI_SIGNATURE_LIST\n");
+		efi_guid_t type;
+		esl_get_type(iter, &type);
+		if (!efi_guid_cmp(&type, &efi_guid_x509_cert)) {
+			int32_t asn1size;
+
+			asn1size = GetASN1SequenceSize(
+				((uint8_t *)*data) + sizeof (efi_guid_t),
+				*len - sizeof (efi_guid_t));
+			if (asn1size < 0) {
+				warnx("iterator data claims to be an X.509 "
+				      "Cert but is not valid ASN.1 DER");
+			} else if (asn1size != iter->esl->SignatureSize -
+					       sizeof (efi_guid_t)) {
+				warnx("X.509 Cert ASN.1 size does not match "
+				      "SignatureList Size (%d vs %ld)",
+				      asn1size, iter->esl->SignatureSize -
+						sizeof (efi_guid_t));
+			}
+
+		}
+
 		iter->offset += iter->esl->SignatureListSize;
 		if (iter->offset >= iter->len)
 			return 0;
