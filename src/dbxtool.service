@@ -1,10 +1,10 @@
 [Unit]
-Description=Secure Boot DBX updater
-RequiresMountsFor=/usr/bin/ /usr/share/dbxtool/
+Description=Secure Boot DBX (blacklist) updater
+ConditionPathExists=/sys/firmware/efi/efivars
 
 [Install]
-WantedBy=basic.target multi-user.target
+WantedBy=multi-user.target
 
 [Service]
-Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/bin/dbxtool -a /usr/share/dbxtool/
