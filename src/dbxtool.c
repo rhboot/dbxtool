@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 
+#include "error.h"
 #include "esl.h"
 #include "eslhtable.h"
 #include "iter.h"
@@ -109,7 +110,7 @@ dump_dbx(uint8_t *buf, size_t len)
 
 	rc = esd_iter_new(&iter, buf, len);
 	if (rc < 0)
-		err(1, NULL);
+		error(1, NULL);
 
 	while (1) {
 		efi_guid_t type;
@@ -119,7 +120,7 @@ dump_dbx(uint8_t *buf, size_t len)
 
 		rc = esd_iter_next(iter, &type, &owner, &data, &datalen);
 		if (rc < 0)
-			err(1, NULL);
+			error(1, NULL);
 		if (rc == 0)
 			break;
 
@@ -127,12 +128,12 @@ dump_dbx(uint8_t *buf, size_t len)
 		char *typestr = NULL;
 		int rc = efi_guid_to_id_guid(&type, &typestr);
 		if (rc < 0)
-			err(1, "bad type guid");
+			error(1, "bad type guid");
 
 		char *ownerstr = NULL;
 		rc = efi_guid_to_id_guid(&owner, &ownerstr);
 		if (rc < 0)
-			err(1, "bad owner guid");
+			error(1, "bad owner guid");
 
 		printf("%4d: %s %s ", esd_iter_get_line(iter),
 						ownerstr, typestr);
@@ -294,6 +295,7 @@ get_cert_type_size(efi_guid_t *guid)
 			return sizes[i].size;
 	}
 	errno = ENOENT;
+	efi_error("could not determine cert type size");
 	return -1;
 }
 
@@ -331,10 +333,8 @@ static void apply_update(struct db_update_file *update, uint32_t attributes)
 	rc = efi_append_variable(efi_guid_security, "dbx",
 		update->base, update->len, attributes);
 	if (rc < 0) {
-		fprintf(stderr, "Could not apply database update \"%s\": %m\n",
-				update->name);
-		fprintf(stderr, "Cannot continue.\n");
-		exit(1);
+		error(1, "Could not apply database update \"%s\": %m\n"
+		         "Cannot Continue.", update->name);
 	}
 }
 
@@ -370,7 +370,7 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 	esd_iter *esdi = NULL;
 	rc = esd_iter_new(&esdi, eslbuf, esllen);
 	if (rc < 0)
-		err(1, "Couldn't iterate contents of update");
+		error(1, "Couldn't iterate contents of update");
 
 	while (1) {
 		struct esl_hash_entry ehe;
@@ -379,7 +379,7 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 		rc = esd_iter_next(esdi, &ehe.type, &ehe.owner,
 					&ehe.data, &ehe.datalen);
 		if (rc < 0)
-			err(1, NULL);
+			error(1, NULL);
 		if (rc == 0)
 			break;
 
@@ -420,19 +420,19 @@ load_update_file(struct db_update_file *update_ret, const char *path, int infd)
 	int rc;
 
 	if (fd < 0)
-		err(1, "1 Could not read file \"%s\"", path);
+		error(1, "1 Could not read file \"%s\"", path);
 
 	update.name = path;
 	rc = read_file(fd, (char **)&update.base, &update.len);
 	if (rc < 0)
-		err(1, "2 Could not read file \"%s\"", path);
+		error(1, "2 Could not read file \"%s\"", path);
 
 	if (infd < 0)
 		close(fd);
 
 	filetype ft = guess_file_type(update.base, update.len);
 	if (ft != ft_append_timestamp)
-		errx(1, "dbxtool only supports timestamped updates\n");
+		errorx(1, "dbxtool only supports timestamped updates\n");
 
 	EFI_VARIABLE_AUTHENTICATION_2 *va =
 			(EFI_VARIABLE_AUTHENTICATION_2 *)update.base;
@@ -461,18 +461,18 @@ get_apply_files_from_dir(const char *dirname,
 
 	dir = opendir(dirname);
 	if (!dir)
-		err(1, "Couldn't open directory \"%s\"", dirname);
+		error(1, "Couldn't open directory \"%s\"", dirname);
 
 	int dfd = dirfd(dir);
 	if (dfd < 0)
-		err(1, "Couldn't get directory \"%s\"", dirname);
+		error(1, "Couldn't get directory \"%s\"", dirname);
 	while (1) {
 		struct dirent *d;
 
 		errno = 0;
 		if (!(d = readdir(dir))) {
 			if (errno)
-				err(1, "Couldn't read directory \"%s\"",
+				error(1, "Couldn't read directory \"%s\"",
 					dirname);
 			break;
 		}
@@ -483,7 +483,7 @@ get_apply_files_from_dir(const char *dirname,
 		struct stat sb;
 		rc = fstatat(dfd, d->d_name, &sb, 0);
 		if (rc < 0)
-			err(1, "Could not stat \"%s\"", d->d_name);
+			error(1, "Could not stat \"%s\"", d->d_name);
 
 		if (!S_ISREG(sb.st_mode)) {
 			vprintf("Skipping non regular file \"%s\"",
@@ -495,12 +495,12 @@ get_apply_files_from_dir(const char *dirname,
 		struct db_update_file *new_updates = realloc(updates,
 					num_updates * sizeof (*updates));
 		if (!new_updates)
-			err(1, "Could not process updates");
+			error(1, "Could not process updates");
 		updates = new_updates;
 
 		int fd = openat(dfd, d->d_name, O_RDONLY);
 		if (fd < 0)
-			err(1, "Couldn't open update \"%s\"", d->d_name);
+			error(1, "Couldn't open update \"%s\"", d->d_name);
 
 		load_update_file(&new_updates[num_updates-1], d->d_name, fd);
 		close(fd);
@@ -543,33 +543,34 @@ main(int argc, char *argv[])
 
 	rc = poptReadDefaultConfig(optCon, 0);
         if (rc < 0 && !(rc == POPT_ERROR_ERRNO && errno == ENOENT))
-		errx(1, "poptReadDefaultConfig failed: %s", poptStrerror(rc));
+		errorx(1, "poptReadDefaultConfig failed: %s", poptStrerror(rc));
 
 	rc = poptGetNextOpt(optCon);
 	int num_updates = 0;
 	if (action & ACTION_APPLY) {
 		if (rc >= 0)
-			errx(1, "--apply was specified with no files given");
+			errorx(1, "--apply was specified with no files given");
 
 		apply_files = poptGetArgs(optCon);
 		if (apply_files == NULL)
-			errx(1, "--apply was specified with no files given: "
+			errorx(1, "--apply was specified with no files given: "
 				"\"%s\": %s",
 				poptBadOption(optCon, 0), poptStrerror(rc));
 		for (int i = 0; apply_files[i] != NULL; i++, num_updates++) {
 			poptGetArg(optCon);
 			if (access(apply_files[i], R_OK))
-				err(1, "Could not open \"%s\"", apply_files[i]);
+				error(1, "Could not open \"%s\"",
+				      apply_files[i]);
 		}
 		rc = 0;
 	}
 
 	if (rc < -1)
-		errx(1, "Invalid argument: \"%s\": %s",
+		errorx(1, "Invalid argument: \"%s\": %s",
 			poptBadOption(optCon, 0), poptStrerror(rc));
 
 	if (poptPeekArg(optCon))
-		errx(1, "Invalid argument: \"%s\"",
+		errorx(1, "Invalid argument: \"%s\"",
 			poptPeekArg(optCon));
 
 	uint8_t *orig_dbx_buffer = NULL;
@@ -580,25 +581,25 @@ main(int argc, char *argv[])
 		vprintf("Loading dbx from \"%s\"\n", ctx.dbx_file);
 		int fd = open(ctx.dbx_file, O_RDWR|O_CREAT, 0600);
 		if (fd < 0)
-			err(1, "Could not open file \"%s\"", ctx.dbx_file);
+			error(1, "Could not open file \"%s\"", ctx.dbx_file);
 
 		rc = read_file(fd, (char **)&dbx_buffer, &dbx_len);
 		if (rc < 0)
-			err(1, "4 Could not read file \"%s\"", ctx.dbx_file);
+			error(1, "4 Could not read file \"%s\"", ctx.dbx_file);
 
 		close(fd);
 
 		filetype ft = guess_file_type(dbx_buffer, dbx_len);
 		switch (ft) {
 			case ft_unknown:
-				err(1, "Unknown file type");
+				error(1, "Unknown file type");
 				break;
 			case ft_dbx:
 				vprintf("dbx file type is dbx\n");
 				attributes = dbx_buffer[0];
 				uint8_t *tmp = malloc(dbx_len - 4);
 				if (!tmp)
-					err(1, "%m");
+					error(1, "%m");
 
 				memmove(tmp, dbx_buffer + 4, dbx_len - 4);
 				free(dbx_buffer);
@@ -625,12 +626,12 @@ main(int argc, char *argv[])
 			}
 			default:
 				errno = EINVAL;
-				err(1, "Sorry, can't handle this yet");
+				error(1, "Sorry, can't handle this yet");
 				break;
 		}
 	} else {
 		if (!efi_variables_supported())
-			errx(1, "EFI variables are not supported on this "
+			errorx(1, "EFI variables are not supported on this "
 				"machine, and no dbx file was specified");
 
 		rc = efi_get_variable(efi_guid_security, "dbx", &dbx_buffer,
@@ -639,7 +640,7 @@ main(int argc, char *argv[])
 			/* a missing dbx variable is okay as long as "apply"
 			 * is among the requested actions */
 			if (errno != ENOENT || !(action & ACTION_APPLY)) {
-				err(1, "Could not get dbx variable");
+				error(1, "Could not get dbx variable");
 			}
 
 			assert(dbx_buffer == NULL);
@@ -658,13 +659,13 @@ main(int argc, char *argv[])
 		memset(&dbxht, '\0', sizeof (dbxht));
 		rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
 		if (rc < 0)
-			err(1, NULL);
+			error(1, NULL);
 
 		if (num_updates == 1) {
 			struct stat sb;
 			rc = stat(apply_files[0], &sb);
 			if (rc < 0)
-				err(1, "Couldn't access \"%s\"",
+				error(1, "Couldn't access \"%s\"",
 					apply_files[0]);
 
 			const char *dirname = apply_files[0];
@@ -680,7 +681,7 @@ main(int argc, char *argv[])
 			updates = calloc(num_updates,
 				sizeof (struct db_update_file));
 			if (updates == NULL)
-				err(1, "Couldn't allocate buffers");
+				error(1, "Couldn't allocate buffers");
 			for (int i = 0;
 			     apply_files != NULL && apply_files[i] != NULL;
 			     i++) {
@@ -701,7 +702,7 @@ main(int argc, char *argv[])
 				updates[i].name);
 			rc = is_update_applied(&updates[i], &dbxht);
 			if (rc < 0)
-				err(1, NULL);
+				error(1, NULL);
 			if (rc == 0) {
 				if (applied == 1) {
 					fprintf(stderr,
