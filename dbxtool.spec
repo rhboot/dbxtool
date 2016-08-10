@@ -1,13 +1,13 @@
 Name:           dbxtool
-Version:        0.6
+Version:        7
 Release:        1%{?dist}
 Summary:        Secure Boot DBX updater
 License:        GPLv2
 URL:            https://github.com/vathpela/dbxtool
 ExclusiveArch:  i386 x86_64 aarch64
 BuildRequires:  popt-devel git systemd
-BuildRequires:  efivar-devel >= 0.14-1
-Requires:       efivar >= 0.14-1
+BuildRequires:  efivar-devel >= 26-1
+Requires:       efivar >= 26-1
 Source0:        https://github.com/vathpela/dbxtool/releases/download/dbxtool-%{version}/dbxtool-%{version}.tar.bz2
 
 %description
@@ -44,6 +44,11 @@ rm -f %{buildroot}/%{_docdir}/%{name}/COPYING
 %{_unitdir}/dbxtool.service
 
 %changelog
+* Wed Aug 10 2016 Peter Jones <pjones@redhat.com> - 7-1
+- Update to version 7
+- Add new dbxupdate.bin for CVE-2016-3320 and
+  https://support.microsoft.com/en-us/kb/3179577
+
 * Wed Oct 08 2014 Peter Jones <pjones@redhat.com> - 0.6-1
 - Update to 0.6
 - make "dbxtool -l" correctly show not-well-known guids.
