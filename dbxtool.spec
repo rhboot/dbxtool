@@ -6,8 +6,8 @@ License:        GPLv2
 URL:            https://github.com/vathpela/dbxtool
 ExclusiveArch:  i386 x86_64 aarch64
 BuildRequires:  popt-devel git systemd
-BuildRequires:  efivar-devel >= 25-1
-Requires:       efivar >= 25-1
+BuildRequires:  efivar-devel >= 26-1
+Requires:       efivar >= 26-1
 Source0:        https://github.com/vathpela/dbxtool/releases/download/dbxtool-%{version}/dbxtool-%{version}.tar.bz2
 
 %description
