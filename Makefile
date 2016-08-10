@@ -4,7 +4,7 @@ include $(TOPDIR)/Make.defaults
 
 SUBDIRS := src data
 DOCDIR := /share/doc/
-VERSION = 0.6
+VERSION = 7
 
 all : $(SUBDIRS)
 
