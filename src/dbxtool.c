@@ -579,7 +579,7 @@ main(int argc, char *argv[])
 	uint32_t attributes = 0;
 	if (ctx.dbx_file != NULL) {
 		vprintf("Loading dbx from \"%s\"\n", ctx.dbx_file);
-		int fd = open(ctx.dbx_file, O_RDWR|O_CREAT, 0600);
+		int fd = open(ctx.dbx_file, O_RDONLY);
 		if (fd < 0)
 			error(1, "Could not open file \"%s\"", ctx.dbx_file);
 
