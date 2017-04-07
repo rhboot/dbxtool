@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/param.h>
 #include <unistd.h>
 
 #define save_errno(x)					\
@@ -93,6 +94,17 @@ print_hex(uint8_t *data, size_t len)
 			       hex[(data[i] & 0x0f) >> 0]);
 }
 
+static int
+__attribute__ ((unused))
+memcmp2(const void *l, const ssize_t ll, const void *r, const ssize_t rl)
+{
+	int ret;
 
+	ret = memcmp(l, r, MIN(ll, rl));
+	if (ret != 0 || ll == rl)
+		return ret;
+
+	return ll < rl ? -1 : 1;
+}
 
 #endif /* DBXTOOL_UTIL_H */

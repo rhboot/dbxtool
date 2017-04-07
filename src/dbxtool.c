@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <popt.h>
+#include <search.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -31,11 +32,9 @@
 
 #include "error.h"
 #include "esl.h"
-#include "eslhtable.h"
+#include "esltree.h"
 #include "iter.h"
 #include "util.h"
-
-#include <ccan/htable/htable.h>
 
 #define ACTION_LIST	0x1
 #define ACTION_APPLY	0x2
@@ -339,7 +338,7 @@ static void apply_update(struct db_update_file *update, uint32_t attributes)
 }
 
 static int
-is_update_applied(struct db_update_file *update, struct htable *dbx)
+is_update_applied(struct db_update_file *update, void **dbx)
 {
 	/* this function is a bit of a lie.  We can't actually tell if an
 	 * update itself is installed, because to do that we'd need the
@@ -373,8 +372,8 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 		error(1, "Couldn't iterate contents of update");
 
 	while (1) {
-		struct esl_hash_entry ehe;
-		struct esl_hash_entry *ehep;
+		struct esl_tree_entry ehe;
+		struct esl_tree_entry *ehep;
 
 		rc = esd_iter_next(esdi, &ehe.type, &ehe.owner,
 					&ehe.data, &ehe.datalen);
@@ -383,8 +382,7 @@ is_update_applied(struct db_update_file *update, struct htable *dbx)
 		if (rc == 0)
 			break;
 
-		ehep = htable_get(dbx, esl_htable_hash(&ehe), esl_htable_eq,
-				&ehe);
+		ehep = tfind(&ehe, dbx, esl_cmp);
 		if (!ehep) {
 			vprintf("Update entry is not applied.\n");
 			ret = 0;
@@ -655,9 +653,8 @@ main(int argc, char *argv[])
 
 	struct db_update_file *updates = NULL;
 	if ((action & ACTION_APPLY) && num_updates != 0) {
-		struct htable dbxht;
-		memset(&dbxht, '\0', sizeof (dbxht));
-		rc = esl_htable_create(&dbxht, dbx_buffer, dbx_len);
+		void *dbxtree = NULL;
+		rc = esl_tree_create(&dbxtree, dbx_buffer, dbx_len);
 		if (rc < 0)
 			error(1, NULL);
 
@@ -700,7 +697,7 @@ main(int argc, char *argv[])
 		for (int i = 0; i < num_updates; i++) {
 			vprintf("Checking if \"%s\" has been applied.\n",
 				updates[i].name);
-			rc = is_update_applied(&updates[i], &dbxht);
+			rc = is_update_applied(&updates[i], &dbxtree);
 			if (rc < 0)
 				error(1, NULL);
 			if (rc == 0) {
@@ -737,7 +734,7 @@ main(int argc, char *argv[])
 			}
 		}
 
-		esl_htable_destroy(&dbxht);
+		esl_tree_destroy(&dbxtree);
 	}
 
 	int ret = 0;

@@ -16,23 +16,20 @@
  *
  * Author(s): Peter Jones <pjones@redhat.com>
  */
-#ifndef DBXTOOL_ESLHTABLE_H
-#define DBXTOOL_ESLHTABLE_H 1
+#ifndef DBXTOOL_ESLTREE_H
+#define DBXTOOL_ESLTREE_H 1
 
-#include <ccan/htable/htable.h>
 #include <efivar.h>
 
-extern int esl_htable_create(struct htable *ht, uint8_t *dbx_buf, size_t dbx_len);
-extern void esl_htable_destroy(struct htable *ht);
+extern int esl_tree_create(void **rootp, uint8_t *dbx_buf, size_t dbx_len);
+extern void esl_tree_destroy(void **rootp);
+extern int esl_cmp(const void *l, const void *r);
 
-struct esl_hash_entry {
+struct esl_tree_entry {
 	efi_guid_t type;
 	efi_guid_t owner;
 	uint8_t *data;
 	size_t datalen;
 };
 
-extern size_t esl_htable_hash(const struct esl_hash_entry *elem);
-extern bool esl_htable_eq(const void *l, void *r);
-
-#endif /* DBXTOOL_ESLHTABLE_H */
+#endif /* DBXTOOL_ESLTREE_H */
