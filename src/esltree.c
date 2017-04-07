@@ -17,56 +17,37 @@
  * Author(s): Peter Jones <pjones@redhat.com>
  */
 
-#include <ccan/hash/hash.h>
-#include <ccan/htable/htable.h>
 #include <err.h>
+#include <search.h>
+#include <sys/param.h>
 
-#include "eslhtable.h"
+#include "esltree.h"
 #include "iter.h"
 #include "util.h"
 
-size_t
-esl_htable_hash(const struct esl_hash_entry *elem)
+int
+esl_cmp(const void *l, const void *r)
 {
-	const struct esl_hash_entry *hep = (struct esl_hash_entry *)elem;
-
-	size_t base = 0;
-	base = hash((uint8_t *)&hep->type, sizeof(hep->type), base);
-	base = hash(hep->data, hep->datalen, base);
-	return base;
-}
-
-bool
-esl_htable_eq(const void *l, void *r)
-{
-	const struct esl_hash_entry *le = l, *re = r;
-
+	const struct esl_tree_entry *le = l, *re = r;
 	int ret;
+
 	ret = efi_guid_cmp(&le->type, &re->type);
 	if (ret != 0)
-		return 1;
+		return ret;
 
-	if (le->datalen != re->datalen)
-		return 1;
-
-	return memcmp(le->data, re->data, re->datalen) == 0;
-}
-
-size_t
-esl_htable_rehash(const void *elem, void *priv)
-{
-	return esl_htable_hash(elem);
+	ret = memcmp2(le->data, le->datalen, re->data, re->datalen);
+	return ret;
 }
 
 int
-esl_htable_create(struct htable *ht, uint8_t *dbx_buf, size_t dbx_len)
+esl_tree_create(void **rootp, uint8_t *dbx_buf, size_t dbx_len)
 {
 	esd_iter *iter = NULL;
 	int rc;
 	int ret = 0;
 
 	if (dbx_len == 0) {
-		htable_init(ht, esl_htable_rehash, NULL);
+		esl_tree_destroy(rootp);
 		return 0;
 	}
 
@@ -74,9 +55,8 @@ esl_htable_create(struct htable *ht, uint8_t *dbx_buf, size_t dbx_len)
 	if (rc < 0)
 		err(1, NULL);
 
-	htable_init(ht, esl_htable_rehash, NULL);
 	while (1) {
-		struct esl_hash_entry *ehp;
+		struct esl_tree_entry *ehp;
 
 		ehp = calloc(1, sizeof (*ehp));
 		if (!ehp)
@@ -91,23 +71,24 @@ esl_htable_create(struct htable *ht, uint8_t *dbx_buf, size_t dbx_len)
 			break;
 		}
 
-		htable_add(ht, esl_htable_hash(ehp), ehp);
+		tsearch(ehp, rootp, esl_cmp);
 	}
 
 	esd_iter_end(iter);
 	return ret;
 }
 
-void
-esl_htable_destroy(struct htable *ht)
+static void
+esl_tree_destroy_node(void *nodep)
 {
-	struct htable_iter i;
-	struct esl_hash_entry *ehp = NULL;
+	struct esl_tree_entry *ehp = (struct esl_tree_entry *)nodep;
 
-	ehp = htable_first(ht, &i);
-	while (ehp) {
-		free(ehp);
-		ehp = htable_next(ht, &i);
-	}
-	htable_clear(ht);
+	free(ehp);
+}
+
+void
+esl_tree_destroy(void **rootp)
+{
+	tdestroy(*rootp, esl_tree_destroy_node);
+	*rootp = NULL;
 }
