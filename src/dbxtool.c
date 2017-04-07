@@ -535,6 +535,7 @@ main(int argc, char *argv[])
 		POPT_AUTOHELP
 		POPT_TABLEEND
 	};
+	int num_updates = 0;
 
 	optCon = poptGetContext("dbxtool", argc, (const char **)argv,
 				options, 0);
@@ -543,8 +544,9 @@ main(int argc, char *argv[])
         if (rc < 0 && !(rc == POPT_ERROR_ERRNO && errno == ENOENT))
 		errorx(1, "poptReadDefaultConfig failed: %s", poptStrerror(rc));
 
-	rc = poptGetNextOpt(optCon);
-	int num_updates = 0;
+	while ((rc = poptGetNextOpt(optCon)) > 0)
+		;
+
 	if (action & ACTION_APPLY) {
 		if (rc >= 0)
 			errorx(1, "--apply was specified with no files given");
@@ -613,6 +615,7 @@ main(int argc, char *argv[])
 					EFI_VARIABLE_NON_VOLATILE;
 				break;
 			case ft_append_timestamp: {
+				vprintf("dbx file type is append_timesrtamp\n");
 				EFI_VARIABLE_AUTHENTICATION_2 *va =
 					(void *)dbx_buffer;
 				orig_dbx_buffer = dbx_buffer;
