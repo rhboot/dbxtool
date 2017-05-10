@@ -23,3 +23,7 @@ include $(TOPDIR)/Make.version
 	$(CC) $(INCDIR) $(BUILDFLAGS) $(CPPFLAGS) -E $< -o $@
 
 %.c : %.h
+
+define get-config
+$(shell git config --local --get "$(NAME).$(1)")
+endef
