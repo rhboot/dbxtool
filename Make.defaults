@@ -1,3 +1,5 @@
+NAME = dbxtool
+COMMIT_ID ?= $(shell git log -1 --pretty=%H 2>/dev/null || echo master)
 INSTALLROOT:= $(DESTDIR)
 PREFIX := /usr
 

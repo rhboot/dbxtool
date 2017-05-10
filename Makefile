@@ -9,6 +9,8 @@ DOCDIR := /share/doc/
 
 all : $(SUBDIRS)
 
+include $(TOPDIR)/Make.coverity
+
 $(SUBDIRS) :
 	$(MAKE) -C $@ TOPDIR=$(TOPDIR) SRCDIR=$(TOPDIR)/$@/
 
