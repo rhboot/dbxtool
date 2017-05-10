@@ -1,3 +1,6 @@
+
+include $(TOPDIR)/Make.version
+
 %.a :
 	$(AR) -cvqs $@ $^
 
