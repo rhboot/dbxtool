@@ -1,10 +1,11 @@
 TOPDIR = $(shell echo $$PWD)
 
+include $(TOPDIR)/Make.version
+include $(TOPDIR)/Make.rules
 include $(TOPDIR)/Make.defaults
 
 SUBDIRS := src data
 DOCDIR := /share/doc/
-VERSION = 7
 
 all : $(SUBDIRS)
 
@@ -20,8 +21,6 @@ install :
 	$(INSTALL) -m 644 COPYING $(INSTALLROOT)$(PREFIX)$(DOCDIR)/dbxtool/
 
 .PHONY: $(SUBDIRS) clean install
-
-include $(TOPDIR)/Make.rules
 
 GITTAG = $(VERSION)
 
@@ -46,5 +45,3 @@ archive: tag
 	@dir=$$PWD; cd /tmp; tar -c --bzip2 -f $$dir/dbxtool-$(VERSION).tar.bz2 dbxtool-$(VERSION)
 	@rm -rf /tmp/dbxtool-$(VERSION)
 	@echo "The archive is in dbxtool-$(VERSION).tar.bz2"
-
-
