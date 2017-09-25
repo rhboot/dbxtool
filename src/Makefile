@@ -6,8 +6,8 @@ include $(TOPDIR)/Make.defaults
 PKLIBS = efivar
 LIBS = popt
 LDFLAGS =
-CCLDFLAGS = $(foreach pklib,$(PKLIBS), $(shell pkg-config --libs-only-L $(pklib)))
-BUILDFLAGS += $(foreach pklib,$(PKLIBS), $(shell pkg-config --cflags $(pklib))) -Werror
+CCLDFLAGS = $(foreach pklib,$(PKLIBS), $(shell $(PKG_CONFIG) --libs-only-L $(pklib)))
+BUILDFLAGS += $(foreach pklib,$(PKLIBS), $(shell $(PKG_CONFIG) --cflags $(pklib))) -Werror
 
 TARGETS = dbxtool
 

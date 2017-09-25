@@ -1,6 +1,8 @@
 NAME = dbxtool
 COMMIT_ID ?= $(shell git log -1 --pretty=%H 2>/dev/null || echo master)
 INSTALLROOT:= $(DESTDIR)
+CROSS_COMPILE ?=
+COMPILER ?= gcc
 PREFIX := /usr
 
 INCDIR	   = -I$(TOPDIR)/include
@@ -13,12 +15,11 @@ ASFLAGS    =
 LDFLAGS	   = -nostdlib
 CCLDFLAGS  = -shared
 INSTALL	   = install
-# XXX this is broken
-bindir     = /usr/bin/
 
-CC            = $(bindir)gcc
-AS            = $(bindir)as
-LD            = $(bindir)ld.bfd
-AR            = $(bindir)ar
-RANLIB        = $(bindir)ranlib
-OBJCOPY       = $(bindir)objcopy
+CC            = $(CROSS_COMPILE)$(COMPILER)
+AR            = $(CROSS_COMPILE)$(COMPILER)-ar
+RANLIB        = $(CROSS_COMPILE)$(COMPILER)-ranlib
+AS            = $(CROSS_COMPILE)as
+LD            = $(CROSS_COMPILE)ld.bfd
+OBJCOPY       = $(CROSS_COMPILE)objcopy
+PKG_CONFIG = $(shell if [ -e "$$(env $(CROSS_COMPILE)pkg-config 2>&1)" ]; then echo $(CROSS_COMPILE)pkg-config ; else echo pkg-config ; fi)
