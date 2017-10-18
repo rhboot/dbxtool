@@ -1,5 +1,5 @@
 Name:           dbxtool
-Version:        7
+Version:        8
 Release:        1%{?dist}
 Summary:        Secure Boot DBX updater
 License:        GPLv2
@@ -44,6 +44,18 @@ rm -f %{buildroot}/%{_docdir}/%{name}/COPYING
 %{_unitdir}/dbxtool.service
 
 %changelog
+* Wed Oct 18 2017 Peter Jones <pjones@redhat.com> - 8-1
+- Update to version 8
+- Make a "make coverity" rule to scan the source
+  Results at: https://scan.coverity.com/projects/rhboot-dbxtool
+- Don't try to apply anything if PK and KEK aren't enrolled
+- Add --force and --quiet for the PK/KEK checker, and use them in the
+  systemd service.
+- Add a .syntastic_c_config for vim's Syntastic modules
+- Use tsearch()/tfind()/tdestroy() from libc instead of ccan htables
+- Don't open the dbx file with O_RDWR|O_CREAT, use O_RDONLY.
+- Lots of minor bug fixes gcc -Wextra and friends found.
+
 * Wed Aug 10 2016 Peter Jones <pjones@redhat.com> - 7-1
 - Update to version 7
 - Add new dbxupdate.bin for CVE-2016-3320 and
