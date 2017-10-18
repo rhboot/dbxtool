@@ -20,6 +20,7 @@
 #include <err.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "esl.h"
 #include "iter.h"
@@ -34,7 +35,7 @@ struct esd_iter {
 	size_t len;
 
 	size_t nmemb;
-	int i;
+	unsigned int i;
 };
 
 int
@@ -107,7 +108,7 @@ esd_iter_next(esd_iter *iter, efi_guid_t *type, efi_guid_t *owner,
 			if (asn1size < 0) {
 				warnx("iterator data claims to be an X.509 "
 				      "Cert but is not valid ASN.1 DER");
-			} else if (asn1size != iter->len -
+			} else if ((uint32_t)asn1size != iter->len -
 					sizeof (iter->esd->SignatureOwner)) {
 				warnx("X.509 Cert ASN.1 size does not match "
 				      "SignatureList Size (%d vs %ld)",
@@ -207,7 +208,9 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 {
 	if (!iter)
 		return -EINVAL;
-	if (iter->offset >= iter->len)
+	if (iter->offset < 0)
+		return -EINVAL;
+	if ((uint32_t)iter->offset >= iter->len)
 		return -EINVAL;
 
 	if (!iter->esl) {
@@ -217,6 +220,12 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 		vprintf("Getting next EFI_SIGNATURE_LIST\n");
 		efi_guid_t type;
 		esl_get_type(iter, &type);
+		if (iter->len - iter->offset > iter->esl->SignatureListSize) {
+			warnx("EFI Signature List is malformed");
+			errx(1, "list has %zd bytes left, element is %"PRIu32" bytes",
+			     iter->len - iter->offset,
+			     iter->esl->SignatureListSize);
+		}
 		if (!efi_guid_cmp(&type, &efi_guid_x509_cert)) {
 			int32_t asn1size;
 
@@ -226,8 +235,8 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 			if (asn1size < 0) {
 				warnx("iterator data claims to be an X.509 "
 				      "Cert but is not valid ASN.1 DER");
-			} else if (asn1size != iter->esl->SignatureSize -
-					       sizeof (efi_guid_t)) {
+			} else if ((uint32_t)asn1size != iter->esl->SignatureSize
+							 - sizeof (efi_guid_t)) {
 				warnx("X.509 Cert ASN.1 size does not match "
 				      "SignatureList Size (%d vs %ld)",
 				      asn1size, iter->esl->SignatureSize -
@@ -237,7 +246,7 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 		}
 
 		iter->offset += iter->esl->SignatureListSize;
-		if (iter->offset >= iter->len)
+		if ((uint32_t)iter->offset >= iter->len)
 			return 0;
 		iter->esl = (EFI_SIGNATURE_LIST *)((intptr_t)iter->buf
 						+ iter->offset);
