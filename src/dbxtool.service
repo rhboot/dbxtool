@@ -7,4 +7,4 @@ WantedBy=multi-user.target
 
 [Service]
 RemainAfterExit=yes
-ExecStart=/usr/bin/dbxtool -a /usr/share/dbxtool/
+ExecStart=/usr/bin/dbxtool -a /usr/share/dbxtool/ -q -f

@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <popt.h>
 #include <search.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -44,6 +45,8 @@ int verbose = 0;
 typedef struct {
 	char *dbx_file;
 	int action;
+	bool force;
+	bool quiet;
 } dbxtool_ctx;
 
 struct db_update_file {
@@ -507,6 +510,43 @@ get_apply_files_from_dir(const char *dirname,
 	*num_updates_ret = num_updates;
 }
 
+static void
+check_pk_and_kek(bool force, bool quiet)
+{
+	struct {
+		char *name;
+		efi_guid_t guid;
+	} guids[] = {
+		{ "PK", efi_guid_global },
+		{ "KEK", efi_guid_global },
+		{ NULL, efi_guid_zero },
+	};
+	bool all_found = true;
+
+	for (int i = 0; guids[i].name != NULL; i++) {
+		int rc;
+		size_t datasize = 0;
+		errno = 0;
+		rc = efi_get_variable_size(guids[i].guid, guids[i].name,
+					   &datasize);
+		if (rc < 0 && errno == ENOENT) {
+			if (!quiet)
+				warnx("%s is not set on this system.",
+				      guids[i].name);
+			all_found = false;
+		}
+	}
+	if (!all_found) {
+		if (!quiet) {
+			if (!force)
+				errx(1, "Not attempting to apply updates.");
+			warnx("attempting to apply updates anyway.");
+		}
+		if (!force)
+			exit(1);
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -517,6 +557,7 @@ main(int argc, char *argv[])
 
 	dbxtool_ctx ctx = { 0 };
 	poptContext optCon;
+	int force = 0, quiet = 0;
 	struct poptOption options[] = {
 		{NULL, '\0', POPT_ARG_INTL_DOMAIN, "dbxtool", 0, NULL, NULL },
 		{"dbx", 'd', POPT_ARG_STRING,
@@ -528,6 +569,14 @@ main(int argc, char *argv[])
 		{"apply", 'a', POPT_ARG_VAL|POPT_ARGFLAG_OR,
 			&action, ACTION_APPLY,
 			"apply update files", NULL },
+		{"force", 'f', POPT_ARG_VAL,
+			&force, 1,
+			"apply updates even if PK and KEK are not set",
+			NULL },
+		{"quiet", 'q', POPT_ARG_VAL,
+			&quiet, 1,
+			"do not show warnings if PK and KEK are not set",
+			NULL },
 		{"verbose", 'v', POPT_ARG_VAL,
 			&verbose, 1,
 			"be verbose about everything", NULL },
@@ -572,6 +621,9 @@ main(int argc, char *argv[])
 	if (poptPeekArg(optCon))
 		errorx(1, "Invalid argument: \"%s\"",
 			poptPeekArg(optCon));
+
+	ctx.force = force;
+	ctx.quiet = quiet;
 
 	uint8_t *orig_dbx_buffer = NULL;
 	uint8_t *dbx_buffer = NULL;
@@ -657,6 +709,9 @@ main(int argc, char *argv[])
 	struct db_update_file *updates = NULL;
 	if ((action & ACTION_APPLY) && num_updates != 0) {
 		void *dbxtree = NULL;
+
+		check_pk_and_kek(ctx.force, ctx.quiet);
+
 		rc = esl_tree_create(&dbxtree, dbx_buffer, dbx_len);
 		if (rc < 0)
 			error(1, NULL);
