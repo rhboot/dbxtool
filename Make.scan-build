@@ -1,0 +1,13 @@
+include $(TOPDIR)/Make.version
+include $(TOPDIR)/Make.rules
+include $(TOPDIR)/Make.defaults
+
+scan-clean :
+	@if [[ -d scan-results ]]; then rm -rf scan-results && echo "removed 'scan-results'"; fi
+
+scan-build : clean
+	scan-build -o scan-results make -j4 all
+
+clean : | scan-clean
+
+.PHONY : scan-build scan-clean
