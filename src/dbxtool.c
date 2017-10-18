@@ -319,7 +319,7 @@ sort_updates(struct db_update_file *updates, size_t num_updates)
 		update_cmp);
 }
 
-static void print_update_name(const void *base, size_t len)
+static void print_update_name(const void *base)
 {
 	EFI_VARIABLE_AUTHENTICATION_2 *va =
 		(EFI_VARIABLE_AUTHENTICATION_2 *)base;
@@ -518,7 +518,7 @@ main(int argc, char *argv[])
 	dbxtool_ctx ctx = { 0 };
 	poptContext optCon;
 	struct poptOption options[] = {
-		{NULL, '\0', POPT_ARG_INTL_DOMAIN, "dbxtool" },
+		{NULL, '\0', POPT_ARG_INTL_DOMAIN, "dbxtool", 0, NULL, NULL },
 		{"dbx", 'd', POPT_ARG_STRING,
 			&ctx.dbx_file, 0, "specify dbx database file",
 			"<dbxfile>"},
@@ -730,8 +730,7 @@ main(int argc, char *argv[])
 
 			for (int i = first_unapplied; i < num_updates; i++) {
 				printf("Applying \"%s\" ", updates[i].name);
-				print_update_name(updates[i].base,
-						  updates[i].len);
+				print_update_name(updates[i].base);
 				printf("\n");
 				apply_update(&updates[i], attributes);
 			}
