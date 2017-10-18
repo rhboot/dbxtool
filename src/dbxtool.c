@@ -320,6 +320,8 @@ static inline void
 sort_updates(struct db_update_file *updates, size_t num_updates)
 {
 	vprintf("Sorting updates list\n");
+	if (num_updates < 2)
+		return;
 	qsort(updates, num_updates, sizeof (struct db_update_file),
 		update_cmp);
 }
@@ -732,9 +734,12 @@ main(int argc, char *argv[])
 						&updates,
 						&new_num_updates);
 				num_updates = new_num_updates;
+				if (num_updates == 0)
+					warnx("Updates directory \"%s\" contains no updates.",
+					      dirname);
 			}
 		}
-		if (updates == NULL) {
+		if (updates == NULL && num_updates > 0) {
 			updates = calloc(num_updates,
 				sizeof (struct db_update_file));
 			if (updates == NULL)
