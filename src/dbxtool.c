@@ -598,13 +598,14 @@ check_pk_and_kek(bool force, bool quiet)
 		}
 	}
 	if (!all_found) {
-		if (!quiet) {
+		if (quiet) {
+			if (!force)
+				exit(0);
+		} else {
 			if (!force)
 				errx(1, "Not attempting to apply updates.");
 			warnx("attempting to apply updates anyway.");
 		}
-		if (!force)
-			exit(1);
 	}
 }
 
