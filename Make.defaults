@@ -14,7 +14,7 @@ BUILDFLAGS = $(CFLAGS) -fPIC -fshort-wchar -fno-strict-aliasing \
 		--param=ssp-buffer-size=4 -fexceptions
 ASFLAGS    =
 LDFLAGS	   = -nostdlib
-CCLDFLAGS  = -shared
+CCLDFLAGS += -shared
 INSTALL	   = install
 COMPILER  ?=
 
