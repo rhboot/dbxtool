@@ -222,7 +222,7 @@ esl_iter_next(esl_iter *iter, efi_guid_t *type,
 		vprintf("Getting next EFI_SIGNATURE_LIST\n");
 		efi_guid_t type;
 		esl_get_type(iter, &type);
-		if (iter->len - iter->offset > iter->esl->SignatureListSize) {
+		if (iter->len - iter->offset < iter->esl->SignatureListSize) {
 			warnx("EFI Signature List is malformed");
 			errx(1, "list has %zd bytes left, element is %"PRIu32" bytes",
 			     iter->len - iter->offset,
