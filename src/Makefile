@@ -13,7 +13,7 @@ TARGETS = dbxtool
 
 all : $(TARGETS)
 
-dbxtool_SOURCES = dbxtool.c iter.c esltree.c
+dbxtool_SOURCES = dbxtool.c esltree.c
 dbxtool_OBJECTS = $(foreach source,$(dbxtool_SOURCES),$(patsubst %.c,%,$(source)).o)
 dbxtool_DEPS = $(foreach source,$(dbxtool_SOURCES),.$(patsubst %.c,%,$(source)).P)
 dbxtool : $(dbxtool_OBJECTS) $(STATIC_LIBS)
