@@ -39,6 +39,12 @@
 
 #define ACTION_LIST	0x1
 #define ACTION_APPLY	0x2
+#define ACTION_EXPORT	0x4
+
+typedef enum {
+	DUMP_PRINT,
+	DUMP_EXPORT
+} dump_mode_t;
 
 int verbose = 0;
 
@@ -101,11 +107,32 @@ is_time_sane(efi_time_t *t)
 	return 1;
 }
 
+static const struct {
+	const efi_guid_t * const guid;
+	const char * const suffix;
+} suffixes[] = {
+	{ &efi_guid_x509_cert, ".cer" },
+	{ &efi_guid_sha1, ".sha1" },
+	{ &efi_guid_sha224, ".sha224" },
+	{ &efi_guid_sha256, ".sha256" },
+	{ &efi_guid_sha384, ".sha384" },
+	{ &efi_guid_sha512, ".sha512" },
+	{ &efi_guid_x509_sha256, ".tbs.sha256" },
+	{ &efi_guid_x509_sha384, ".tbs.sha384" },
+	{ &efi_guid_x509_sha512, ".tbs.sha512" },
+	{ &efi_guid_empty, "" },
+};
+
 int
-dump_dbx(uint8_t *buf, size_t len)
+dump_dbx(dump_mode_t mode, const char * const prefix,
+	 uint8_t *buf, size_t len)
 {
 	int rc;
 	efi_secdb_iter *iter = NULL;
+	int x = 0, i;
+	char *outfile;
+	FILE *out;
+	int pfxdot;
 
 	if (len == 0)
 		return 0;
@@ -126,7 +153,6 @@ dump_dbx(uint8_t *buf, size_t len)
 		if (rc == 0)
 			break;
 
-
 		char *typestr = NULL;
 		int rc = efi_guid_to_id_guid(&type, &typestr);
 		if (rc < 0)
@@ -139,8 +165,40 @@ dump_dbx(uint8_t *buf, size_t len)
 
 		printf("%4d: %s %s ", efi_secdb_iter_get_line(iter),
 						ownerstr, typestr);
-		print_hex(data, datalen);
-		printf("\n");
+		switch (mode) {
+		case DUMP_PRINT:
+			print_hex(data, datalen);
+			printf("\n");
+			break;
+		case DUMP_EXPORT:
+			pfxdot = strlen(prefix);
+			if (pfxdot < 1 || prefix[pfxdot-1] != '.')
+				pfxdot = 1;
+			else
+				pfxdot = 0;
+
+			for (i = 0; !efi_guid_is_empty(suffixes[i].guid); i++) {
+				if (!efi_guid_cmp(&type, suffixes[i].guid))
+					break;
+			}
+
+			rc = asprintf(&outfile, "%s%s%04d%s",
+				      prefix, pfxdot ? "." : "", x++,
+				      suffixes[i].suffix);
+			if (rc < 1)
+				error(1, "Couldn't allocate buffer");
+
+			out = fopen(outfile, "w");
+			if (!out)
+				error(1, "Couldn't open \"%s\" for writing",
+				      outfile);
+
+			printf("writing \"%s\"\n", outfile);
+			free(outfile);
+			fwrite(data, 1, datalen, out);
+			fclose(out);
+			break;
+		}
 
 		free(typestr);
 		free(ownerstr);
@@ -556,6 +614,8 @@ main(int argc, char *argv[])
 	uint32_t action = 0;
 
 	const char **apply_files = NULL;
+	char * const prefix_default = "dbx.";
+	char *prefix = prefix_default;
 
 	dbxtool_ctx ctx = { 0 };
 	poptContext optCon;
@@ -571,10 +631,15 @@ main(int argc, char *argv[])
 		{"apply", 'a', POPT_ARG_VAL|POPT_ARGFLAG_OR,
 			&action, ACTION_APPLY,
 			"apply update files", NULL },
+		{"export", 'e', POPT_ARG_VAL|POPT_ARGFLAG_OR,
+			&action, ACTION_EXPORT,
+			"update binary hashes and certificates", NULL },
 		{"force", 'f', POPT_ARG_VAL,
 			&force, 1,
 			"apply updates even if PK and KEK are not set",
 			NULL },
+		{"prefix", 'p', POPT_ARG_STRING|POPT_ARGFLAG_SHOW_DEFAULT,
+			&prefix, 0, "prefix to use with --export", NULL },
 		{"quiet", 'q', POPT_ARG_VAL,
 			&quiet, 1,
 			"do not show warnings if PK and KEK are not set",
@@ -807,8 +872,12 @@ main(int argc, char *argv[])
 	}
 
 	if (action & ACTION_LIST) {
-		dump_dbx(dbx_buffer, dbx_len);
+		dump_dbx(DUMP_PRINT, NULL, dbx_buffer, dbx_len);
 		action &= ~ACTION_LIST;
+	}
+	if (action & ACTION_EXPORT) {
+		dump_dbx(DUMP_EXPORT, prefix, dbx_buffer, dbx_len);
+		action &= ~ACTION_EXPORT;
 	}
 
 end:
