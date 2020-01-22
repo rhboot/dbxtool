@@ -3,7 +3,7 @@ TOPDIR = $(SRCDIR)/..
 
 include $(TOPDIR)/Make.defaults
 
-PKLIBS = efivar
+PKLIBS = efivar efisec
 LIBS = popt
 LDFLAGS =
 CCLDFLAGS = $(foreach pklib,$(PKLIBS), $(shell pkg-config --libs-only-L $(pklib)))

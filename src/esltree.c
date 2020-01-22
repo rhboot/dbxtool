@@ -19,6 +19,7 @@
 
 #include "fix_coverity.h"
 
+#include <efisec.h>
 #include <err.h>
 #include <search.h>
 #include <sys/param.h>

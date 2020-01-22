@@ -21,6 +21,7 @@
 
 #include <dirent.h>
 #include <efivar.h>
+#include <efisec.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -247,11 +248,11 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		char *guidname = NULL;
 
 		memcpy(&va2, buf, sizeof(va2));
-		efi_guid_to_id_guid(&va2.auth_info.cert_type, &guidname);
+		efi_guid_to_id_guid(&va2.auth_info.type, &guidname);
 		vprintf("va2 guid is %s ", guidname);
 		free(guidname);
 		guidname = NULL;
-		if (efi_guid_is_empty(&va2.auth_info.cert_type)) {
+		if (efi_guid_is_empty(&va2.auth_info.type)) {
 			vprintf("cannot be va2 data\n");
 			break;
 		} else {
@@ -263,7 +264,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 			vprintf("guid table guid is %s\n", guidname);
 			free(guidname);
 			guidname = NULL;
-			if (!efi_guid_cmp(&guids[i], &va2.auth_info.cert_type)) {
+			if (!efi_guid_cmp(&guids[i], &va2.auth_info.type)) {
 				vprintf("ft_append_timestamp is "
 					"%4d-%02d-%02d %d:%d:%d\n",
 					va2.timestamp.year,
@@ -282,11 +283,11 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		char *guidname = NULL;
 
 		memcpy(&va, buf, sizeof(va));
-		efi_guid_to_id_guid(&va.auth_info.cert_type, &guidname);
+		efi_guid_to_id_guid(&va.auth_info.type, &guidname);
 		vprintf("va guid is %s ", guidname);
 		free(guidname);
 		guidname = NULL;
-		if (efi_guid_is_empty(&va.auth_info.cert_type)) {
+		if (efi_guid_is_empty(&va.auth_info.type)) {
 			vprintf("cannot be va data\n");
 			break;
 		} else {
@@ -294,7 +295,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		}
 
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
-			if (!efi_guid_cmp(&guids[i], &va.auth_info.cert_type)) {
+			if (!efi_guid_cmp(&guids[i], &va.auth_info.type)) {
 				vprintf("ft_append_monotonic\n");
 				return ft_append_monotonic;
 			}
@@ -425,7 +426,7 @@ is_update_applied(struct db_update_file *update, void **dbx)
 			- sizeof (va->timestamp)
 			- va->auth_info.hdr.length;
 	uint8_t *eslbuf = (uint8_t *)
-			((intptr_t)&va->auth_info.hdr.cert_data
+			((intptr_t)&va->auth_info.type
 				+ va->auth_info.hdr.length
 				- sizeof (va->auth_info.hdr));
 
