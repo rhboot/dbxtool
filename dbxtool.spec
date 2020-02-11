@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        Secure Boot DBX updater
 License:        GPLv2
 URL:            https://github.com/vathpela/dbxtool
-ExclusiveArch:  i386 x86_64 aarch64
+ExclusiveArch:  i386 x86_64 aarch64 mips64el
 BuildRequires:  popt-devel git systemd
 BuildRequires:  efivar-devel >= 26-1
 Requires:       efivar >= 26-1
