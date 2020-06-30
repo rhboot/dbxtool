@@ -1,6 +1,8 @@
 [Unit]
 Description=Secure Boot DBX (blacklist) updater
 ConditionPathExists=/sys/firmware/efi/efivars
+ConditionKernelCommandLine=!rd.live.image
+ConditionKernelCommandLine=!boot=live
 
 [Install]
 WantedBy=multi-user.target
