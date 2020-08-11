@@ -19,12 +19,12 @@
 
 #include "fix_coverity.h"
 
-#include <efisec.h>
 #include <err.h>
 #include <search.h>
 #include <sys/param.h>
 
 #include "esltree.h"
+#include "iter.h"
 #include "util.h"
 
 int
@@ -44,7 +44,7 @@ esl_cmp(const void *l, const void *r)
 int
 esl_tree_create(void **rootp, uint8_t *dbx_buf, size_t dbx_len)
 {
-	efi_secdb_iter *iter = NULL;
+	esd_iter *iter = NULL;
 	int rc;
 	int ret = 0;
 
@@ -53,7 +53,7 @@ esl_tree_create(void **rootp, uint8_t *dbx_buf, size_t dbx_len)
 		return 0;
 	}
 
-	rc = efi_secdb_iter_new(&iter, dbx_buf, dbx_len);
+	rc = esd_iter_new(&iter, dbx_buf, dbx_len);
 	if (rc < 0)
 		err(1, NULL);
 
@@ -64,7 +64,7 @@ esl_tree_create(void **rootp, uint8_t *dbx_buf, size_t dbx_len)
 		if (!ehp)
 			err(1, NULL);
 
-		rc = efi_secdb_iter_next(iter, &ehp->type, &ehp->owner,
+		rc = esd_iter_next(iter, &ehp->type, &ehp->owner,
 					&ehp->data, &ehp->datalen);
 		if (rc < 0)
 			err(1, NULL);
@@ -76,7 +76,7 @@ esl_tree_create(void **rootp, uint8_t *dbx_buf, size_t dbx_len)
 		tsearch(ehp, rootp, esl_cmp);
 	}
 
-	efi_secdb_iter_end(iter);
+	esd_iter_end(iter);
 	return ret;
 }
 

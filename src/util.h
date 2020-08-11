@@ -67,20 +67,20 @@ read_file(int fd, char **bufp, size_t *lenptr) {
 
 static int
 __attribute__ ((unused))
-timecmp(efi_time_t *a, efi_time_t *b)
+timecmp(EFI_TIME *a, EFI_TIME *b)
 {
-	if (a->year != b->year)
-		return a->year - b->year;
-	if (a->month != b->month)
-		return a->month - b->month;
-	if (a->day != b->day)
-		return a->day - b->day;
-	if (a->hour != b->hour)
-		return a->hour - b->hour;
-	if (a->minute != b->minute)
-		return a->minute - b->minute;
-	if (a->second != b->second)
-		return a->second - b->second;
+	if (a->Year != b->Year)
+		return a->Year - b->Year;
+	if (a->Month != b->Month)
+		return a->Month - b->Month;
+	if (a->Day != b->Day)
+		return a->Day - b->Day;
+	if (a->Hour != b->Hour)
+		return a->Hour - b->Hour;
+	if (a->Minute != b->Minute)
+		return a->Minute - b->Minute;
+	if (a->Second != b->Second)
+		return a->Second - b->Second;
 	return 0;
 }
 

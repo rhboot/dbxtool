@@ -21,7 +21,6 @@
 
 #include <dirent.h>
 #include <efivar.h>
-#include <efisec.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -35,7 +34,9 @@
 #include <assert.h>
 
 #include "error.h"
+#include "esl.h"
 #include "esltree.h"
+#include "iter.h"
 #include "util.h"
 
 #define ACTION_LIST	0x1
@@ -63,23 +64,23 @@ struct db_update_file {
 };
 
 static inline int
-print_time(FILE *f, efi_time_t *t)
+print_time(FILE *f, EFI_TIME *t)
 {
 	return fprintf(f, "%4d-%d-%d %d:%d:%d",
-		t->year, t->month, t->day, t->hour, t->minute, t->second);
+		t->Year, t->Month, t->Day, t->Hour, t->Minute, t->Second);
 }
 
 static inline int
-is_time_sane(efi_time_t *t)
+is_time_sane(EFI_TIME *t)
 {
-	if (t->second >= 60)
+	if (t->Second >= 60)
 		return 0;
-	if (t->minute >= 60)
+	if (t->Minute >= 60)
 		return 0;
-	if (t->hour >= 24)
+	if (t->Hour >= 24)
 		return 0;
 	int mlen = 0;
-	switch (t->month) {
+	switch (t->Month) {
 		case 1:
 		case 3:
 		case 5:
@@ -101,9 +102,9 @@ is_time_sane(efi_time_t *t)
 		default:
 			return 0;
 	}
-	if (t->day == 0 || t->day > mlen)
+	if (t->Day == 0 || t->Day > mlen)
 		return 0;
-	if (t->year < 1998)
+	if (t->Year < 1998)
 		return 0;
 	return 1;
 }
@@ -129,16 +130,16 @@ dump_dbx(dump_mode_t mode, const char * const prefix,
 	 uint8_t *buf, size_t len)
 {
 	int rc;
-	efi_secdb_iter *iter = NULL;
 	int x = 0, i;
 	char *outfile;
 	FILE *out;
 	int pfxdot;
+	esd_iter *iter = NULL;
 
 	if (len == 0)
 		return 0;
 
-	rc = efi_secdb_iter_new(&iter, buf, len);
+	rc = esd_iter_new(&iter, buf, len);
 	if (rc < 0)
 		error(1, NULL);
 
@@ -148,7 +149,7 @@ dump_dbx(dump_mode_t mode, const char * const prefix,
 		uint8_t *data;
 		size_t datalen;
 
-		rc = efi_secdb_iter_next(iter, &type, &owner, &data, &datalen);
+		rc = esd_iter_next(iter, &type, &owner, &data, &datalen);
 		if (rc < 0)
 			error(1, NULL);
 		if (rc == 0)
@@ -164,7 +165,7 @@ dump_dbx(dump_mode_t mode, const char * const prefix,
 		if (rc < 0)
 			error(1, "bad owner guid");
 
-		printf("%4d: %s %s ", efi_secdb_iter_get_line(iter),
+		printf("%4d: %s %s ", esd_iter_get_line(iter),
 						ownerstr, typestr);
 		switch (mode) {
 		case DUMP_PRINT:
@@ -205,7 +206,7 @@ dump_dbx(dump_mode_t mode, const char * const prefix,
 		free(ownerstr);
 	}
 
-	efi_secdb_iter_end(iter);
+	esd_iter_end(iter);
 	return 0;
 }
 
@@ -220,8 +221,8 @@ typedef enum {
 static filetype
 guess_file_type(uint8_t *buf, size_t buflen)
 {
-	efi_variable_authentication_2_t va2;
-	efi_variable_authentication_t va;
+	EFI_VARIABLE_AUTHENTICATION_2 va2;
+	EFI_VARIABLE_AUTHENTICATION va;
 
 	efi_guid_t guids[] = {
 		efi_guid_pkcs7_cert,
@@ -248,11 +249,11 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		char *guidname = NULL;
 
 		memcpy(&va2, buf, sizeof(va2));
-		efi_guid_to_id_guid(&va2.auth_info.type, &guidname);
+		efi_guid_to_id_guid(&va2.AuthInfo.CertType, &guidname);
 		vprintf("va2 guid is %s ", guidname);
 		free(guidname);
 		guidname = NULL;
-		if (efi_guid_is_empty(&va2.auth_info.type)) {
+		if (efi_guid_is_empty(&va2.AuthInfo.CertType)) {
 			vprintf("cannot be va2 data\n");
 			break;
 		} else {
@@ -264,15 +265,15 @@ guess_file_type(uint8_t *buf, size_t buflen)
 			vprintf("guid table guid is %s\n", guidname);
 			free(guidname);
 			guidname = NULL;
-			if (!efi_guid_cmp(&guids[i], &va2.auth_info.type)) {
+			if (!efi_guid_cmp(&guids[i], &va2.AuthInfo.CertType)) {
 				vprintf("ft_append_timestamp is "
 					"%4d-%02d-%02d %d:%d:%d\n",
-					va2.timestamp.year,
-					va2.timestamp.month,
-					va2.timestamp.day,
-					va2.timestamp.hour,
-					va2.timestamp.minute,
-					va2.timestamp.second);
+					va2.TimeStamp.Year,
+					va2.TimeStamp.Month,
+					va2.TimeStamp.Day,
+					va2.TimeStamp.Hour,
+					va2.TimeStamp.Minute,
+					va2.TimeStamp.Second);
 				return ft_append_timestamp;
 			}
 		}
@@ -283,11 +284,11 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		char *guidname = NULL;
 
 		memcpy(&va, buf, sizeof(va));
-		efi_guid_to_id_guid(&va.auth_info.type, &guidname);
+		efi_guid_to_id_guid(&va.AuthInfo.CertType, &guidname);
 		vprintf("va guid is %s ", guidname);
 		free(guidname);
 		guidname = NULL;
-		if (efi_guid_is_empty(&va.auth_info.type)) {
+		if (efi_guid_is_empty(&va.AuthInfo.CertType)) {
 			vprintf("cannot be va data\n");
 			break;
 		} else {
@@ -295,7 +296,7 @@ guess_file_type(uint8_t *buf, size_t buflen)
 		}
 
 		for (int i = 0; efi_guid_is_empty(&guids[i]) == 0; i++) {
-			if (!efi_guid_cmp(&guids[i], &va.auth_info.type)) {
+			if (!efi_guid_cmp(&guids[i], &va.AuthInfo.CertType)) {
 				vprintf("ft_append_monotonic\n");
 				return ft_append_monotonic;
 			}
@@ -317,21 +318,21 @@ guess_file_type(uint8_t *buf, size_t buflen)
 			buf[1] == 0 &&
 			buf[2] == 0 &&
 			buf[3] == 0 &&
-			buflen > (4 + sizeof (efi_signature_list_t))) {
-		efi_signature_list_t esl;
-		memcpy(&esl, buf + 4, sizeof (efi_signature_list_t));
+			buflen > (4 + sizeof (EFI_SIGNATURE_LIST))) {
+		EFI_SIGNATURE_LIST esl;
+		memcpy(&esl, buf + 4, sizeof (EFI_SIGNATURE_LIST));
 		for (int i = 0; efi_guid_is_empty(&esl_guids[i]) == 0; i++) {
-			if (!efi_guid_cmp(&esl_guids[i], &esl.signature_type)) {
+			if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
 				vprintf("ft_dbx\n");
 				return ft_dbx;
 			}
 		}
 	}
 
-	efi_signature_list_t esl;
-	memcpy(&esl, buf, sizeof (efi_signature_list_t));
+	EFI_SIGNATURE_LIST esl;
+	memcpy(&esl, buf, sizeof (EFI_SIGNATURE_LIST));
 	for (int i = 0; efi_guid_is_empty(&esl_guids[i]) == 0; i++) {
-		if (!efi_guid_cmp(&esl_guids[i], &esl.signature_type)) {
+		if (!efi_guid_cmp(&esl_guids[i], &esl.SignatureType)) {
 			vprintf("ft_dbx_noattr\n");
 			return ft_dbx_noattr;
 		}
@@ -365,12 +366,12 @@ static int update_cmp(const void *p, const void *q)
 	struct db_update_file *piov = (struct db_update_file *)p;
 	struct db_update_file *qiov = (struct db_update_file *)q;
 
-	efi_variable_authentication_2_t *vap =
-		(efi_variable_authentication_2_t *)piov->base;
-	efi_variable_authentication_2_t *vaq =
-		(efi_variable_authentication_2_t *)qiov->base;
+	EFI_VARIABLE_AUTHENTICATION_2 *vap =
+		(EFI_VARIABLE_AUTHENTICATION_2 *)piov->base;
+	EFI_VARIABLE_AUTHENTICATION_2 *vaq =
+		(EFI_VARIABLE_AUTHENTICATION_2 *)qiov->base;
 
-	return timecmp(&vap->timestamp, &vaq->timestamp);
+	return timecmp(&vap->TimeStamp, &vaq->TimeStamp);
 }
 
 static inline void
@@ -385,9 +386,9 @@ sort_updates(struct db_update_file *updates, size_t num_updates)
 
 static void print_update_name(const void *base)
 {
-	efi_variable_authentication_2_t *va =
-		(efi_variable_authentication_2_t *)base;
-	print_time(stdout, &va->timestamp);
+	EFI_VARIABLE_AUTHENTICATION_2 *va =
+		(EFI_VARIABLE_AUTHENTICATION_2 *)base;
+	print_time(stdout, &va->TimeStamp);
 }
 
 static void apply_update(struct db_update_file *update, uint32_t attributes)
@@ -419,19 +420,19 @@ is_update_applied(struct db_update_file *update, void **dbx)
 	int rc;
 	int ret = 1;
 
-	efi_variable_authentication_2_t *va =
-					(efi_variable_authentication_2_t *)
+	EFI_VARIABLE_AUTHENTICATION_2 *va =
+					(EFI_VARIABLE_AUTHENTICATION_2 *)
 					update->base;
 	size_t esllen = update->len
-			- sizeof (va->timestamp)
-			- va->auth_info.hdr.length;
+			- sizeof (va->TimeStamp)
+			- va->AuthInfo.Hdr.dwLength;
 	uint8_t *eslbuf = (uint8_t *)
-			((intptr_t)&va->auth_info.type
-				+ va->auth_info.hdr.length
-				- sizeof (va->auth_info.hdr));
+			((intptr_t)&va->AuthInfo.Hdr.bCertificate
+				+ va->AuthInfo.Hdr.dwLength
+				- sizeof (va->AuthInfo.Hdr));
 
-	efi_secdb_iter *esdi = NULL;
-	rc = efi_secdb_iter_new(&esdi, eslbuf, esllen);
+	esd_iter *esdi = NULL;
+	rc = esd_iter_new(&esdi, eslbuf, esllen);
 	if (rc < 0)
 		error(1, "Couldn't iterate contents of update");
 
@@ -439,7 +440,7 @@ is_update_applied(struct db_update_file *update, void **dbx)
 		struct esl_tree_entry ehe;
 		struct esl_tree_entry *ehep;
 
-		rc = efi_secdb_iter_next(esdi, &ehe.type, &ehe.owner,
+		rc = esd_iter_next(esdi, &ehe.type, &ehe.owner,
 					&ehe.data, &ehe.datalen);
 		if (rc < 0)
 			error(1, NULL);
@@ -455,7 +456,7 @@ is_update_applied(struct db_update_file *update, void **dbx)
 			vprintf("Update entry is already applied.\n");
 		}
 	}
-	efi_secdb_iter_end(esdi);
+	esd_iter_end(esdi);
 
 	return ret;
 }
@@ -496,14 +497,14 @@ load_update_file(struct db_update_file *update_ret, const char *path, int infd)
 	if (ft != ft_append_timestamp)
 		errorx(1, "dbxtool only supports timestamped updates\n");
 
-	efi_variable_authentication_2_t *va =
-			(efi_variable_authentication_2_t *)update.base;
+	EFI_VARIABLE_AUTHENTICATION_2 *va =
+			(EFI_VARIABLE_AUTHENTICATION_2 *)update.base;
 
-	if (!is_time_sane(&va->timestamp)) {
+	if (!is_time_sane(&va->TimeStamp)) {
 		fprintf(stderr,
 			"\"%s\" contains a time stamp that is invalid: ",
 			path);
-		print_time(stderr, &va->timestamp);
+		print_time(stderr, &va->TimeStamp);
 		fprintf(stderr, "\n");
 		exit(1);
 	}
@@ -737,10 +738,10 @@ main(int argc, char *argv[])
 				break;
 			case ft_append_timestamp: {
 				vprintf("dbx file type is append_timesrtamp\n");
-				efi_variable_authentication_2_t *va =
+				EFI_VARIABLE_AUTHENTICATION_2 *va =
 					(void *)dbx_buffer;
 				orig_dbx_buffer = dbx_buffer;
-				off_t offset = va->auth_info.hdr.length
+				off_t offset = va->AuthInfo.Hdr.dwLength
 						+ sizeof (efi_guid_t);
 				dbx_buffer = (void *)((intptr_t)va + offset);
 				dbx_len -= offset;
