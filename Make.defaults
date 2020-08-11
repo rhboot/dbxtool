@@ -4,19 +4,34 @@ INSTALLROOT:= $(DESTDIR)
 PREFIX := /usr
 
 INCDIR	   = -I$(TOPDIR)/include
-CFLAGS     = -g3 -Og
-BUILDFLAGS = $(CFLAGS) -fPIC -fshort-wchar -fno-strict-aliasing \
-		-fno-merge-constants -std=gnu11 -D_GNU_SOURCE \
-		-Wall -Wextra -Werror -Werror=format-security \
-		-Wsign-compare -Werror=sign-compare \
-		-Wno-unused-result -Wno-unused-function -Wno-error=cpp \
-		-Wp,-D_FORTIFY_SOURCE=2 -fstack-protector-strong \
-		--param=ssp-buffer-size=4 -fexceptions
+CFLAGS     ?= -g3 -Og \
+	      -Wp,-D_FORTIFY_SOURCE=2 \
+	      -Wp,-D_GLIBCXX_ASSERTIONS \
+	      -grecord-gcc-switches \
+	      -fasynchronous-unwind-tables \
+	      -fcf-protection \
+	      -fexceptions \
+	      -fstack-clash-protection \
+	      -fstack-protector-strong \
+	      -fno-strict-aliasing \
+	      -fPIE \
+	      --param=ssp-buffer-size=4
+
+BUILDFLAGS = $(CFLAGS) \
+	     -std=gnu11 \
+	     -Wp,-D_GNU_SOURCE \
+	     -Wall -Wextra \
+	     -Wno-unused-result \
+	     -Wno-unused-function \
+	     -Werror \
+	     -Wno-error=cpp
+
 ASFLAGS    =
-LDFLAGS	   = -nostdlib
-CCLDFLAGS += -shared
+LDFLAGS	   ?=
+CCLDFLAGS  ?= -fPIE
+LINKFLAGS = $(CCLDFLAGS) -Wl,-z,relro -Wl,--as-needed  -Wl,-z,now
 INSTALL	   = install
-COMPILER  ?=
+COMPILER   ?=
 
 CC        ?= $(COMPILER)gcc
 ifeq ($(origin CC),default)

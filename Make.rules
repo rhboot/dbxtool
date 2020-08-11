@@ -5,10 +5,10 @@ include $(TOPDIR)/Make.version
 	$(AR) -cvqs $@ $^
 
 % : %.o
-	$(CC) $(CCLDFLAGS) -o $@ $^ $(foreach lib,$(LIBS),-l$(lib)) $(foreach pklib,$(PKLIBS), $(shell pkg-config --libs-only-l --libs-only-other $(pklib))) -lpthread
+	$(CC) $(LINKFLAGS) -o $@ $^ $(foreach lib,$(LIBS),-l$(lib)) $(foreach pklib,$(PKLIBS), $(shell pkg-config --libs-only-l --libs-only-other $(pklib))) -lpthread
 
 %.so : 
-	$(CC) $(INCDIR) $(BUILDFLAGS) -Wl,-soname,$(SONAME) $(CCLDFLAGS) $^ -o $@
+	$(CC) $(INCDIR) $(BUILDFLAGS) -Wl,-soname,$(SONAME) $(LINKFLAGS) $^ -o $@
 
 %.o: %.c
 	$(CC) $(INCDIR) $(BUILDFLAGS) $(CPPFLAGS) -c $< -o $@
